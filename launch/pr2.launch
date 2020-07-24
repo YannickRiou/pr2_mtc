@@ -1,0 +1,15 @@
+<launch>
+
+<include file="$(find pr2_moveit_config)/launch/pr2_moveit.launch">
+  <arg name="fake" value="false"/>
+</include>
+
+<node name="pr2_tasks" pkg="pr2_mtc" type="pr2_tasks" respawn="false">
+<param name="left" type="string" value="obj_206" />
+<param name="right" type="string" value="obj_230" />
+<param name="planner" type="string" value="RRTConnect" />
+</node>
+
+<node name="pr2_gripper_event" pkg="pr2_mtc" type="pr2_gripper_event" respawn="true" />
+
+</launch>
