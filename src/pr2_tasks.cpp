@@ -11,6 +11,19 @@
 
 #include <pr2_mtc/pr2_tasks.h>
 
+
+/**
+ * \fn void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
+ * \brief Function to create a place task with specific pose and object
+ *
+ * \param placeTask Task to fill
+ * \param pipeline planner to be used to connect stages
+ * \param cartesian planner to be used for approach and retreat stages
+ * \param robotModel Model of the robot (from urdf)
+ * \param planGroup Moveit planning group (ie. arm doing the place)
+ * \param object Object to be placed (it needs to be already attached to the eef of the associated planGroup)
+ * \param placePose Pose where to place the object
+ */
 void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
 {
 
@@ -49,12 +62,6 @@ void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipelin
 	current_state = initial.get();
 	placeTask.properties().exposeTo(initial->properties(), { "eef", "group" });
 	placeTask.add(std::move(initial));
-
-	{
-		auto stage = std::make_unique<stages::ModifyPlanningScene>("Forbid collision (object,support)");
-		stage->allowCollisions({ object }, "tableLaas", false);
-		placeTask.add(std::move(stage));
-	}
 
 	{
 		// connect to place
@@ -216,7 +223,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesian);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.01, 0.15);
+			stage->setMinMaxDistance(0.01, 0.08);
 			stage->setIKFrame(ikFrame);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -471,52 +478,34 @@ bool gripper_close(GripperClient* gripper, float effort)
   return success;
 }
 
-void onLeftGripperEvent(const std_msgs::StringConstPtr& msg, std_msgs::StringPtr& left_event)
+int main(int argc, char** argv)
 {
-	left_event->data = msg->data;
-}
-
-
-void onLeftArmEffortEvent(const std_msgs::Float32ConstPtr& msg, std_msgs::Float32* left_error)
-{
-	left_error->data = msg->data;
-}
-
-void onLeftArmJointEvent(const std_msgs::Float32ConstPtr& msg, std_msgs::Float32* left_error)
-{
-	left_error->data = msg->data;
-}
-
-
-
-int main(int argc, char** argv){
 	ros::init(argc, argv, "pr2_task");
 	ros::AsyncSpinner spinner(1);
 	spinner.start();
 
 	ros::NodeHandle nh("~");
+	ros::Rate r(10); // 10 hz
 
+	// Parameter for test only
 	std::string left_obj;
 	std::string right_obj;
-
 	std::string choosedPlanner;
 
 	nh.getParam("left", left_obj);
   nh.getParam("right", right_obj);
 	nh.getParam("planner", choosedPlanner);
 
+	// Create a perception handler and launch it
 	pr2perception perception(nh);
 	perception.startPerception();
-	ROS_ERROR("PERCEPTION STARTED");
-	ros::Duration(5).sleep();
+	ros::Duration(6).sleep();
 
-	char ch;
-
-	ros::Rate r(10); // 10 hz
-
+	// Robot model shared by all tasks
 	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
 	moveit::core::RobotModelPtr kinematic_model = robot_model_loader.getModel();
 
+	// planner used for approach and retreat
 	auto cartesian = std::make_shared<solvers::CartesianPath>();
 	cartesian->setProperty("jump_threshold", 0.0);
 
@@ -528,147 +517,109 @@ int main(int argc, char** argv){
 	graspPose_left.header.frame_id = left_obj;
 	graspPose_left.pose.position.x = 0.00;
 	graspPose_left.pose.position.y = 0.0;
-	graspPose_left.pose.position.z = 0.02;
+	graspPose_left.pose.position.z = 0.03;
 	graspPose_left.pose.orientation.x = 0.500;
 	graspPose_left.pose.orientation.y = 0.500;
 	graspPose_left.pose.orientation.z = -0.500;
 	graspPose_left.pose.orientation.w = 0.500;
 
+	geometry_msgs::PoseStamped graspPose_left_2;
+	graspPose_left_2.header.frame_id = "obj_230";
+	graspPose_left_2.pose.position.x = 0.00;
+	graspPose_left_2.pose.position.y = 0.0;
+	graspPose_left_2.pose.position.z = 0.03;
+	graspPose_left_2.pose.orientation.x = 0.500;
+	graspPose_left_2.pose.orientation.y = 0.500;
+	graspPose_left_2.pose.orientation.z = -0.500;
+	graspPose_left_2.pose.orientation.w = 0.500;
+
 	geometry_msgs::PoseStamped movePose_left;
 	movePose_left.header.frame_id = left_obj;
 	movePose_left.pose.position.x = 0.00;
 	movePose_left.pose.position.y = 0.0;
-	movePose_left.pose.position.z = 0.2;
+	movePose_left.pose.position.z = 0.10;
 	movePose_left.pose.orientation.x = 0.500;
 	movePose_left.pose.orientation.y = 0.500;
 	movePose_left.pose.orientation.z = -0.500;
 	movePose_left.pose.orientation.w = 0.500;
 
-	geometry_msgs::PoseStamped graspPose_right;
-	graspPose_right.header.frame_id = right_obj;
-	graspPose_right.pose.position.x = -0.01;
-	graspPose_right.pose.position.y = 0.0;
-	graspPose_right.pose.position.z = 0.02;
-	graspPose_right.pose.orientation.x = 0.0;
-	graspPose_right.pose.orientation.y = 0.0;
-	graspPose_right.pose.orientation.z = 0.0;
-	graspPose_right.pose.orientation.w = 1.0;
-
-
-	geometry_msgs::PoseStamped placePose_left;
-	placePose_left.header.frame_id = "boite";
-	placePose_left.pose.position.x = 0.10;
-	placePose_left.pose.position.y = -0.1;
-	placePose_left.pose.position.z = 0.0;
-	placePose_left.pose.orientation.x = 0.000;
-	placePose_left.pose.orientation.y = 0.707;
-	placePose_left.pose.orientation.z = 0.00;
-	placePose_left.pose.orientation.w = 0.707;
+	geometry_msgs::PoseStamped movePose_left_2;
+	movePose_left_2.header.frame_id = "obj_230";
+	movePose_left_2.pose.position.x = 0.0;
+	movePose_left_2.pose.position.y = 0.0;
+	movePose_left_2.pose.position.z = 0.10;
+	movePose_left_2.pose.orientation.x = 0.500;
+	movePose_left_2.pose.orientation.y = 0.500;
+	movePose_left_2.pose.orientation.z = -0.500;
+	movePose_left_2.pose.orientation.w = 0.500;
 
 	geometry_msgs::PoseStamped placePoseBox_left;
 	placePoseBox_left.header.frame_id = "base_footprint";
-	placePoseBox_left.pose.position.x = 0.4;
-	placePoseBox_left.pose.position.y = 0.7;
-	placePoseBox_left.pose.position.z = 0.40;
+	placePoseBox_left.pose.position.x = 0.3;
+	placePoseBox_left.pose.position.y = 0.9;
+	placePoseBox_left.pose.position.z = 1.1;
 	placePoseBox_left.pose.orientation.x = 0.500;
 	placePoseBox_left.pose.orientation.y = 0.500;
-	placePoseBox_left.pose.orientation.z = -0.500;
+	placePoseBox_left.pose.orientation.z = 0.500;
 	placePoseBox_left.pose.orientation.w = 0.500;
 
-	geometry_msgs::PoseStamped placePose_right;
-	placePose_right.header.frame_id = "boite";
-	placePose_right.pose.position.x = 0.0;
-	placePose_right.pose.position.y = 0.0;
-	placePose_right.pose.position.z = 0.0;
-	placePose_left.pose.orientation.x = 0.000;
-	placePose_left.pose.orientation.y = 0.707;
-	placePose_left.pose.orientation.z = 0.00;
-	placePose_left.pose.orientation.w = 0.707;
-
-
-	//createPickTaskCustom(t,"left_arm","obj_2",graspPose);
-  //createPickTask(t,pipeline,cartesian,kinematic_model,"left_arm","obj_0");
+	// Create task objects
 	Task moveLeft("moveLeft");
+	Task moveLeft_next("moveLeft_next");
+
 	Task pick_left("pick_left");
-	Task pick_right("pick_right");
+	Task pick_left_next("pick_left_next");
+
 	Task place_left("place_left");
-	Task place_right("place_right");
+	Task place_left_next("place_left_next");
 
-
-
-	try {
-		//planTest(pick,pipeline,cartesian,kinematic_model);
-		//createPickTask(pick_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj);
-		//createPickTask(pick_right,pipeline,cartesian,kinematic_model,"right_arm",right_obj);
-
-		//createPickTaskCustom(pick_left,pipeline, cartesian,kinematic_model,"left_arm",left_obj, graspPose_left);
-		//createPickTaskCustom(pick_right,pipeline, cartesian,kinematic_model,"right_arm",right_obj, graspPose_right);
-
+	try
+	{
 		createMoveTask(moveLeft,pipeline, cartesian,kinematic_model,"left_arm", movePose_left);
+		createMoveTask(moveLeft_next,pipeline, cartesian,kinematic_model,"left_arm", movePose_left_2);
 
 		createPickTaskCustom(pick_left,pipeline, cartesian,kinematic_model,"left_arm",left_obj, graspPose_left);
-		createPlaceTask(place_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj,placePose_left);
+		createPickTaskCustom(pick_left_next,pipeline, cartesian,kinematic_model,"left_arm","obj_230", graspPose_left_2);
 
-		createPickTaskCustom(pick_right,pipeline, cartesian,kinematic_model,"right_arm",right_obj, graspPose_right);
-		createPlaceTask(place_right,pipeline,cartesian,kinematic_model,"right_arm",right_obj,placePose_right);
+		createPlaceTask(place_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj,placePoseBox_left);
+		createPlaceTask(place_left_next,pipeline,cartesian,kinematic_model,"left_arm","obj_230",placePoseBox_left);
 
+		// Stop perception before moving objects (avoid to create new collision objects)
 		perception.stopPerception();
+
+		// Plan and execute approach movement
 		moveLeft.plan(2);
-		execute(moveLeft);
-
-		pick_left.plan(2);
-		if(execute(pick_left) == 0)
+		if(execute(moveLeft) == 0)
 		{
-			place_left.plan(2);
-			execute(place_left);
-	  }
+			pick_left.plan(2);
+			if(execute(pick_left) == 0)
+			{
+				place_left.plan(2);
+				if(execute(place_left) == 0)
+				{
+					perception.startPerception();
+					ros::Duration(5).sleep();
+					perception.stopPerception();
+					moveLeft_next.plan(2);
+					execute(moveLeft_next);
 
-		pick_right.plan(2);
-		if(execute(pick_right) == 0)
-		{
-			place_right.plan(2);
-			execute(place_right);
-	  }
+					pick_left_next.plan(2);
+					if(execute(pick_left_next) == 0)
+					{
+						place_left_next.plan(2);
+						execute(place_left_next);
+					}
+				}
+			}
+		}
 
-
-
-		//perception.startPerception();
-
-		//
-		// pick_right.plan(10);
-		// execute(pick_right);
-		//
-		//
-
-		//
-		// place_left.plan(10);
-		// execute(place_left);
-		//
-		// place_right.plan(10);
-		// execute(place_right);
 	}
 	catch (const InitStageException& e)
 	{
 		ROS_ERROR_STREAM(e);
 	}
 
-	if(ch != 'q')
-	{
-		//execute(place);
-
-		// while(ros::ok())
-		// {
-		// 	if(left_arm_effort_error.data > 7.0 && left_arm_joint_error.data > 10)
-		// 	{
-		// 		gripper_open(left_gripper_client_);
-		// 		return 0;
-		// 	}
-		// 	r.sleep();
-		// }
-	}
-
 	while(ros::ok());
-
 
 	return 0;
 }
