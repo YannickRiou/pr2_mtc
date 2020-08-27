@@ -129,7 +129,6 @@ add_executable(pr2_tasks src/pr2_tasks.cpp src/pr2perception/pr2perception.cpp)
 add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
 target_link_libraries(pr2_tasks ${catkin_LIBRARIES})
 
-
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
 add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
 target_link_libraries(pr2_gripper_event ${catkin_LIBRARIES})

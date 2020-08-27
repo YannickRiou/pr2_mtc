@@ -75,7 +75,6 @@ class pr2perception
         moveit::planning_interface::PlanningSceneInterface planning_scene_interface_;
 
         // Store the collision objects added to the scene
-        std::vector<moveit_msgs::CollisionObject> collision_objects_vector_;
 
         void markerCallback(const visualization_msgs::MarkerConstPtr& marker, geometry_msgs::TransformStamped& transform);
 };

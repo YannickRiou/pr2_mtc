@@ -54,7 +54,8 @@ void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipelin
 		ikFrame = "r_gripper_tool_frame";
 		ungrasp = "right_open";
 	}
-
+	pipeline->setPlannerId("RRTConnect");
+	pipeline->setProperty("longest_valid_segment_fraction", 0.001);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -130,6 +131,8 @@ void createMoveTask(Task &moveTask,const solvers::PipelinePlannerPtr& pipeline, 
 	current_state = initial.get();
 	moveTask.add(std::move(initial));
 
+	pipeline->setProperty("longest_valid_segment_fraction", 0.01);
+
 	{
 		// connect
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline},{eef, pipeline}};
@@ -188,6 +191,8 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 		ikFrame = "r_gripper_tool_frame";
 	}
 
+	pipeline->setPlannerId("RRTConnect");
+	pipeline->setProperty("longest_valid_segment_fraction", 0.0001);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -207,9 +212,9 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 	{
 		// connect to pick
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline},{eef, pipeline}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline},{eef, gripper_planner}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
-		connect->setTimeout(10.0);
+		connect->setTimeout(20.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		pickTask.add(std::move(connect));
 	}
@@ -219,13 +224,12 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 		pickTask.properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
-
+		grasp->setTimeout(20.0);
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesian);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.01, 0.08);
+			stage->setMinMaxDistance(0.01, 0.05);
 			stage->setIKFrame(ikFrame);
-			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = object;
 			vec.vector.z = -1.0;
@@ -281,7 +285,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("lift object", cartesian);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.01, 0.05);
+			stage->setMinMaxDistance(0.01, 0.10);
 			stage->setIKFrame(ikFrame);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -291,11 +295,11 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 			grasp->insert(std::move(stage));
 		}
 
-			// ---------------------- Lift object ---------------------- //
+			// ---------------------- Retreat from object ---------------------- //
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesian);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.15, 0.20);
+			stage->setMinMaxDistance(0.01, 0.20);
 			stage->setIKFrame(ikFrame);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -339,6 +343,7 @@ void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, 
 		ikFrame = "r_gripper_tool_frame";
 	}
 
+	pipeline->setProperty("longest_valid_segment_fraction", 0.00001);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -513,6 +518,16 @@ int main(int argc, char** argv)
 	auto pipeline = std::make_shared<solvers::PipelinePlanner>();
 	pipeline->setPlannerId(choosedPlanner);
 
+	geometry_msgs::PoseStamped approachPose_left;
+	approachPose_left.header.frame_id = left_obj;
+	approachPose_left.pose.position.x = 0.00;
+	approachPose_left.pose.position.y = 0.0;
+	approachPose_left.pose.position.z = 0.15;
+	approachPose_left.pose.orientation.x = 0.500;
+	approachPose_left.pose.orientation.y = 0.500;
+	approachPose_left.pose.orientation.z = -0.500;
+	approachPose_left.pose.orientation.w = 0.500;
+
 	geometry_msgs::PoseStamped graspPose_left;
 	graspPose_left.header.frame_id = left_obj;
 	graspPose_left.pose.position.x = 0.00;
@@ -523,35 +538,65 @@ int main(int argc, char** argv)
 	graspPose_left.pose.orientation.z = -0.500;
 	graspPose_left.pose.orientation.w = 0.500;
 
-	geometry_msgs::PoseStamped graspPose_left_2;
-	graspPose_left_2.header.frame_id = "obj_230";
-	graspPose_left_2.pose.position.x = 0.00;
-	graspPose_left_2.pose.position.y = 0.0;
-	graspPose_left_2.pose.position.z = 0.03;
-	graspPose_left_2.pose.orientation.x = 0.500;
-	graspPose_left_2.pose.orientation.y = 0.500;
-	graspPose_left_2.pose.orientation.z = -0.500;
-	graspPose_left_2.pose.orientation.w = 0.500;
+	geometry_msgs::PoseStamped retreatPose_left;
+	retreatPose_left.header.frame_id = "base_footprint";
+	retreatPose_left.pose.position.x = 0.416;
+	retreatPose_left.pose.position.y = 0.528;
+	retreatPose_left.pose.position.z = 1.343;
+	retreatPose_left.pose.orientation.x = 0.056;
+	retreatPose_left.pose.orientation.y = -0.159;
+	retreatPose_left.pose.orientation.z = -0.130;
+	retreatPose_left.pose.orientation.w = 0.977;
 
-	geometry_msgs::PoseStamped movePose_left;
-	movePose_left.header.frame_id = left_obj;
-	movePose_left.pose.position.x = 0.00;
-	movePose_left.pose.position.y = 0.0;
-	movePose_left.pose.position.z = 0.10;
-	movePose_left.pose.orientation.x = 0.500;
-	movePose_left.pose.orientation.y = 0.500;
-	movePose_left.pose.orientation.z = -0.500;
-	movePose_left.pose.orientation.w = 0.500;
+	geometry_msgs::PoseStamped placePose_left;
+	placePose_left.header.frame_id = "box_101";
+	placePose_left.pose.position.x = 0.0;
+	placePose_left.pose.position.y = -0.05;
+	placePose_left.pose.position.z = 0.0;
+	placePose_left.pose.orientation.x = 0.0;
+	placePose_left.pose.orientation.y = 0.707;
+	placePose_left.pose.orientation.z = -0.707;
+	placePose_left.pose.orientation.w = 0.0;
 
-	geometry_msgs::PoseStamped movePose_left_2;
-	movePose_left_2.header.frame_id = "obj_230";
-	movePose_left_2.pose.position.x = 0.0;
-	movePose_left_2.pose.position.y = 0.0;
-	movePose_left_2.pose.position.z = 0.10;
-	movePose_left_2.pose.orientation.x = 0.500;
-	movePose_left_2.pose.orientation.y = 0.500;
-	movePose_left_2.pose.orientation.z = -0.500;
-	movePose_left_2.pose.orientation.w = 0.500;
+	geometry_msgs::PoseStamped approachPose_right;
+	approachPose_right.header.frame_id = right_obj;
+	approachPose_right.pose.position.x = 0.00;
+	approachPose_right.pose.position.y = 0.0;
+	approachPose_right.pose.position.z = 0.15;
+	approachPose_right.pose.orientation.x = 0.500;
+	approachPose_right.pose.orientation.y = 0.500;
+	approachPose_right.pose.orientation.z = -0.500;
+	approachPose_right.pose.orientation.w = 0.500;
+
+	geometry_msgs::PoseStamped graspPose_right;
+	graspPose_right.header.frame_id = right_obj;
+	graspPose_right.pose.position.x = 0.00;
+	graspPose_right.pose.position.y = 0.0;
+	graspPose_right.pose.position.z = 0.03;
+	graspPose_right.pose.orientation.x = 0.500;
+	graspPose_right.pose.orientation.y = 0.500;
+	graspPose_right.pose.orientation.z = -0.500;
+	graspPose_right.pose.orientation.w = 0.500;
+
+	geometry_msgs::PoseStamped retreatPose_right;
+	retreatPose_right.header.frame_id = "base_footprint";
+	retreatPose_right.pose.position.x = 0.416;
+	retreatPose_right.pose.position.y = -0.528;
+	retreatPose_right.pose.position.z = 1.343;
+	retreatPose_right.pose.orientation.x = 0.056;
+	retreatPose_right.pose.orientation.y = -0.159;
+	retreatPose_right.pose.orientation.z = -0.130;
+	retreatPose_right.pose.orientation.w = 0.977;
+
+	geometry_msgs::PoseStamped placePose_right;
+	placePose_right.header.frame_id = "box_102";
+	placePose_right.pose.position.x = 0.0;
+	placePose_right.pose.position.y = 0.0;
+	placePose_right.pose.position.z = 0.0;
+	placePose_right.pose.orientation.x = 0.0;
+	placePose_right.pose.orientation.y = 0.0;
+	placePose_right.pose.orientation.z = 0.707;
+	placePose_right.pose.orientation.w = 0.707;
 
 	geometry_msgs::PoseStamped placePoseBox_left;
 	placePoseBox_left.header.frame_id = "base_footprint";
@@ -564,55 +609,72 @@ int main(int argc, char** argv)
 	placePoseBox_left.pose.orientation.w = 0.500;
 
 	// Create task objects
-	Task moveLeft("moveLeft");
-	Task moveLeft_next("moveLeft_next");
+	Task approachLeft("approachLeft");
+  Task pick_left("pick_left");
+  Task place_left("place_left");
+	Task retreatLeft("retreatLeft");
 
-	Task pick_left("pick_left");
-	Task pick_left_next("pick_left_next");
+	Task approachRight("approachRight");
+	Task pick_right("pick_right");
+	Task place_right("place_right");
+	Task retreatRight("retreatRight");
 
-	Task place_left("place_left");
-	Task place_left_next("place_left_next");
 
 	try
 	{
-		createMoveTask(moveLeft,pipeline, cartesian,kinematic_model,"left_arm", movePose_left);
-		createMoveTask(moveLeft_next,pipeline, cartesian,kinematic_model,"left_arm", movePose_left_2);
-
+		createMoveTask(approachLeft,pipeline, cartesian,kinematic_model,"left_arm", approachPose_left);
 		createPickTaskCustom(pick_left,pipeline, cartesian,kinematic_model,"left_arm",left_obj, graspPose_left);
-		createPickTaskCustom(pick_left_next,pipeline, cartesian,kinematic_model,"left_arm","obj_230", graspPose_left_2);
+		createPlaceTask(place_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj,placePose_left);
+		createMoveTask(retreatLeft,pipeline, cartesian,kinematic_model,"left_arm", retreatPose_left);
 
-		createPlaceTask(place_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj,placePoseBox_left);
-		createPlaceTask(place_left_next,pipeline,cartesian,kinematic_model,"left_arm","obj_230",placePoseBox_left);
+
+		createMoveTask(approachRight,pipeline, cartesian,kinematic_model,"right_arm", approachPose_right);
+		createPickTaskCustom(pick_right,pipeline, cartesian,kinematic_model,"right_arm",right_obj, graspPose_right);
+		createPlaceTask(place_right,pipeline,cartesian,kinematic_model,"right_arm",right_obj,placePose_right);
+		createMoveTask(retreatRight,pipeline, cartesian,kinematic_model,"right_arm", retreatPose_right);
+
 
 		// Stop perception before moving objects (avoid to create new collision objects)
 		perception.stopPerception();
 
+		std::cout << "waiting for any key + <enter>\n";
+		char ch;
+		std::cin >> ch;
+
 		// Plan and execute approach movement
-		moveLeft.plan(2);
-		if(execute(moveLeft) == 0)
-		{
+		/*approachLeft.plan(2);
+		if(execute(approachLeft) == 0)
+		{*/
 			pick_left.plan(2);
 			if(execute(pick_left) == 0)
 			{
-				place_left.plan(2);
-				if(execute(place_left) == 0)
-				{
-					perception.startPerception();
-					ros::Duration(5).sleep();
-					perception.stopPerception();
-					moveLeft_next.plan(2);
-					execute(moveLeft_next);
+				retreatLeft.plan(2);
+				execute(retreatLeft);
 
-					pick_left_next.plan(2);
-					if(execute(pick_left_next) == 0)
-					{
-						place_left_next.plan(2);
-						execute(place_left_next);
-					}
-				}
+				  /*approachRight.plan(2);
+					if(execute(approachRight) == 0)
+					{*/
+						pick_right.plan(2);
+						if(execute(pick_right) == 0)
+						{
+							retreatRight.plan(2);
+							execute(retreatRight);
+
+							place_left.plan(10);
+							if(execute(place_left) == 0)
+							{
+								retreatLeft.plan(2);
+								execute(retreatLeft);
+
+								place_right.plan(2);
+								execute(place_right);
+							}
+
+						}
+					//}
+
 			}
-		}
-
+		//}
 	}
 	catch (const InitStageException& e)
 	{

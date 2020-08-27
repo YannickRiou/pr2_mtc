@@ -61,7 +61,7 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
   collisionObj.header.frame_id = "base_footprint";
   shape_msgs::SolidPrimitive collisionObj_primitive;
 
-  //static tf2_ros::StaticTransformBroadcaster static_broadcaster;
+  static tf2_ros::StaticTransformBroadcaster static_broadcaster;
   geometry_msgs::TransformStamped static_transformStamped;
 
 	// From ar_track_alvar
@@ -91,10 +91,9 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 
 		if(perceptionAskedFlag_)
 		{
-			collisionObj.operation = collisionObj.ADD;
-			collision_objects_vector_.push_back(collisionObj);
+			//collisionObj.operation = collisionObj.ADD;
 			//publish tf
-			/*static_transformStamped.header.stamp = colliObjPosetransformed.header.stamp;
+			static_transformStamped.header.stamp = colliObjPosetransformed.header.stamp;
 			static_transformStamped.header.frame_id = "base_footprint";
 			static_transformStamped.child_frame_id = collisionObj.id;
 			static_transformStamped.transform.translation.x = collisionObj_pose.position.x;
@@ -104,13 +103,12 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 			static_transformStamped.transform.rotation.y = collisionObj_pose.orientation.y;
 			static_transformStamped.transform.rotation.z = collisionObj_pose.orientation.z;
 			static_transformStamped.transform.rotation.w = collisionObj_pose.orientation.w;
-			static_broadcaster.sendTransform(static_transformStamped);*/
+			static_broadcaster.sendTransform(static_transformStamped);
 
 			// Now, let's add the collision object into the world
-			// Little sleep necessary before adding it
-			ros::Duration(0.2).sleep();
+
 			// Add the remaining collision object
-			planning_scene_interface_.addCollisionObjects(collision_objects_vector_);
+			planning_scene_interface_.applyCollisionObject(collisionObj);
 		}
 	}
 	else
@@ -125,7 +123,7 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 		if(marker->id == 100)
 		{
 
-			collisionObj.id = "boite_" + std::to_string(marker->id);
+			collisionObj.id = "box_" + std::to_string(marker->id);
 			std::string mesh_uri("package://exp_director_task/mesh/dt_box_back.dae");
 			m = shapes::createMeshFromResource(mesh_uri);
 			shapes::constructMsgFromShape(m, mesh_msg);
@@ -135,14 +133,15 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 
 			collisionObj_pose.orientation.x = 0.0;
 			collisionObj_pose.orientation.y = 0.0;
-			collisionObj_pose.orientation.z = 0.707;
+			collisionObj_pose.orientation.z = -0.707;
 			collisionObj_pose.orientation.w = 0.707;
 
 			collisionObj.mesh_poses.push_back(collisionObj_pose);
 		}
 		else if(marker->id == 101 || marker->id == 102)
 		{
-			collisionObj.id = "boite_" + std::to_string(marker->id);
+			collisionObj.id = "box_" + std::to_string(marker->id);
+			//ROS_ERROR_STREAM("COLLISION OBJ ID :" << collisionObj.id);
 			std::string mesh_uri("package://exp_director_task/mesh/dt_box.dae");
 			m = shapes::createMeshFromResource(mesh_uri);
 			shapes::constructMsgFromShape(m, mesh_msg);
@@ -152,7 +151,7 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 
 			collisionObj_pose.orientation.x = 0.0;
 			collisionObj_pose.orientation.y = 0.0;
-			collisionObj_pose.orientation.z = 0.707;
+			collisionObj_pose.orientation.z = -0.707;
 			collisionObj_pose.orientation.w = 0.707;
 
 			collisionObj.mesh_poses.push_back(collisionObj_pose);
@@ -188,10 +187,9 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 
 		if(perceptionAskedFlag_)
 		{
-			collisionObj.operation = collisionObj.ADD;
-			collision_objects_vector_.push_back(collisionObj);
+			//collisionObj.operation = collisionObj.ADD;
 			//publish tf
-			/*static_transformStamped.header.stamp = colliObjPosetransformed.header.stamp;
+			static_transformStamped.header.stamp = colliObjPosetransformed.header.stamp;
 			static_transformStamped.header.frame_id = "base_footprint";
 			static_transformStamped.child_frame_id = collisionObj.id;
 			static_transformStamped.transform.translation.x = collisionObj_pose.position.x;
@@ -201,13 +199,11 @@ void pr2perception::markerCallback(const visualization_msgs::MarkerConstPtr& mar
 			static_transformStamped.transform.rotation.y = collisionObj_pose.orientation.y;
 			static_transformStamped.transform.rotation.z = collisionObj_pose.orientation.z;
 			static_transformStamped.transform.rotation.w = collisionObj_pose.orientation.w;
-			static_broadcaster.sendTransform(static_transformStamped);*/
+			static_broadcaster.sendTransform(static_transformStamped);
 
 			// Now, let's add the collision object into the world
-			// Little sleep necessary before adding it
-			ros::Duration(0.2).sleep();
 			// Add the remaining collision object
-			planning_scene_interface_.addCollisionObjects(collision_objects_vector_);
+			planning_scene_interface_.applyCollisionObject(collisionObj);
 		}
 	}
 }
