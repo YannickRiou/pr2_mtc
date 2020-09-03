@@ -1,0 +1,11 @@
+#goal definition
+string predefinedPose
+string planGroup
+geometry_msgs/PoseStamped[] pose
+bool planOnly
+---
+#result definition
+moveit_msgs/MoveItErrorCodes error_code
+---
+#feedback
+int32 status

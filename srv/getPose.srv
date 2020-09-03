@@ -1,0 +1,4 @@
+String[] ids
+---
+geometry_msgs/PoseStamped[] poses
+

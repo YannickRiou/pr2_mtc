@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   rviz_marker_tools
   std_msgs
+  ontologenius
 )
 
 ## System dependencies are found with CMake's conventions
@@ -57,18 +58,18 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+ add_service_files(
+   FILES
+   getPose.srv
+)
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+ add_action_files(
+   FILES
+   move.action
+   pick.action
+   place.action
+ )
 
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
@@ -121,13 +122,13 @@ catkin_package(
 include_directories(
 # include
   include
-  ${catkin_INCLUDE_DIRS} 
-  pr2perception
+  ${catkin_INCLUDE_DIRS}
 )
 
 add_executable(pr2_tasks src/pr2_tasks.cpp src/pr2perception/pr2perception.cpp)
-add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
-target_link_libraries(pr2_tasks ${catkin_LIBRARIES})
+target_link_libraries(pr2_tasks ${catkin_LIBRARIES} ${ontologenius_LIBRARIES})
+add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) ${PROJECT_NAME}_gencpp)
+
 
 
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)

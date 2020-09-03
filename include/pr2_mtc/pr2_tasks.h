@@ -27,8 +27,6 @@
 
 #include<string>
 
-#include <pr2_controllers_msgs/Pr2GripperCommandAction.h>
-
 #include <moveit_task_constructor_msgs/ExecuteTaskSolutionAction.h>
 
 #include <actionlib/client/simple_action_client.h>
@@ -46,11 +44,13 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 
-#include <pr2_mtc/pr2perception.h>
+#include "ontologenius/OntologyManipulator.h"
+
+
+#include "pr2_mtc/getPose.h"
 
 using namespace moveit::task_constructor;
 
-typedef actionlib::SimpleActionClient<pr2_controllers_msgs::Pr2GripperCommandAction> GripperClient;
 
 void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose);
 
@@ -60,6 +60,3 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel, const std::string planGroup,const std::string object);
 
-bool gripper_open(GripperClient* gripper);
-
-bool gripper_close(GripperClient* gripper, float effort);

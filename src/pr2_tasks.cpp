@@ -428,78 +428,117 @@ int execute(Task &t)
 
 }
 
-//Open the gripper
-bool gripper_open(GripperClient* gripper)
+
+// One shot, se désabonner à la fin, à rappeler après chaque place
+void PR2manip::objCallback (const toaster_msgs::ObjectListStamped::ConstPtr& msg)
 {
-	pr2_controllers_msgs::Pr2GripperCommandGoal open;
-  bool success;
-  open.command.position = 0.08;
-  open.command.max_effort = -1.0;  // Do not limit effort (negative)
+  ontologenius_query::OntologeniusQueryFullService ontoQuery;
 
-  gripper->sendGoal(open);
-  gripper->waitForResult();
+  char mesh_uri_c[150];
+  int parseReturn = 0;
+  shape_msgs::Mesh mesh;
+  shapes::ShapeMsg mesh_msg;
+  shapes::Mesh* m;
 
-  if(gripper->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+  std::vector<std::string> tempV;
+
+  ontoQuery.request.ns = ONTOLOGY_NS;
+
+  // Get ObjID, ObjPose and time from Toaster and put them in the main collision_objects_vector_
+  for(auto toasterObj : msg->objectList)
   {
-    //ROS_INFO("gripper opened!");
-    success = true;
-  }
-  else
-  {
-    //ROS_ERROR("gripper failed to open.");
-    success = false;
+    moveit_msgs::CollisionObject cObj;
+
+    // Fill in id, timestamp, and pose
+    cObj.id = toasterObj.meEntity.id;
+    geometry_msgs::PoseStamped old_pose, new_pose;
+
+    if(msg->header.frame_id != "base_footprint")
+    {
+      try{
+        old_pose.header.frame_id = msg->header.frame_id.substr(1,msg->header.frame_id.size());
+        old_pose.header.stamp = msg->header.stamp;
+        old_pose.pose = toasterObj.meEntity.pose;
+        new_pose = tfBuffer_.transform(old_pose, "base_footprint");
+        cObj.header.frame_id = new_pose.header.frame_id;
+        cObj.header.stamp = new_pose.header.stamp;
+        ROS_INFO_STREAM("Transforming new object, old frame : " << old_pose.header.frame_id << " new frame : " << cObj.header.frame_id);
+      }
+      catch (tf2::TransformException &ex) {
+        ROS_WARN("Exception occured when trying to transform frames %s",ex.what());
+        ros::Duration(1.0).sleep();
+        return;
+      }
+    }
+    else
+    {
+      cObj.header.frame_id = msg->header.frame_id;
+      cObj.header.stamp = msg->header.stamp;
+    }
+    cObj.mesh_poses.push_back(new_pose.pose);
+
+    // Ask ontology for the mesh and fill it in the collision obj fields.
+    ontoQuery.request.query = cObj.id + " hasMesh ?mesh";
+    if (ontoClient_.call(ontoQuery))
+    {
+      for (int i=0; i < ontoQuery.response.results[0].names.size(); i++)
+      {
+        if (ontoQuery.response.results[0].names[i] == "mesh")
+        {
+          parseReturn = sscanf(ontoQuery.response.results[0].values[i].c_str(), "string#%s",mesh_uri_c);
+          if(parseReturn == 1)
+          {
+            std::string mesh_uri(mesh_uri_c);
+            m = shapes::createMeshFromResource(mesh_uri);
+            shapes::constructMsgFromShape(m, mesh_msg);
+            mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+            // Add the mesh to the Collision object message
+            cObj.meshes.push_back(mesh);
+          }
+        }
+        cObj.operation = cObj.ADD;
+      }
+    }
+    else
+    {
+      ROS_ERROR("Failed to call Ontology for Mesh...");
+      ROS_ERROR("Error : %s",ontoQuery.response.error.c_str());
+      return;
+    }
+
+    std::cout << "Added " << cObj.id << " to the scene" << std::endl;
+
+    // Add the current object to the collision object vector
+    collision_objects_vector_.push_back(cObj);
   }
 
-  return success;
+  // Now, let's add the collision object into the world
+  // Little sleep necessary before adding it
+  ros::Duration(0.2).sleep();
+  // Add the remaining collision object
+  planning_scene_interface_.addCollisionObjects(collision_objects_vector_);
+
+  // Unsubscribe for now, will re-subscribe after doing a place
+  toaster_sub_.shutdown();
+
+  //TODO Verify timestamp and delete old objects.
 }
 
-//Close the gripper
-bool gripper_close(GripperClient* gripper, float effort)
-{
-  pr2_controllers_msgs::Pr2GripperCommandGoal squeeze;
+OntologyManipulator* onto_;
 
-  bool success;
-  squeeze.command.position = 0.0;
-  squeeze.command.max_effort = effort;  // Close gently
-
-  gripper->sendGoal(squeeze);
-  gripper->waitForResult();
-  if(gripper->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
-  {
-    ROS_INFO("Right gripper closed!");
-     success = true;
-  }
-  else
-  {
-    ROS_ERROR("Right gripper failed to close.");
-    success = false;
-  }
-
-  return success;
-}
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "pr2_task");
+	ros::init(argc, argv, "pr2_task_node");
 	ros::AsyncSpinner spinner(1);
 	spinner.start();
-
+ 
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz
 
-	// Parameter for test only
-	std::string left_obj;
-	std::string right_obj;
-	std::string choosedPlanner;
-
-	nh.getParam("left", left_obj);
-  nh.getParam("right", right_obj);
-	nh.getParam("planner", choosedPlanner);
-
-	// Create a perception handler and launch it
-	pr2perception perception(nh);
-	perception.startPerception();
-	ros::Duration(6).sleep();
+	OntologyManipulator onto(&nh);
+	onto_ = &onto;
+	onto.close();
 
 	// Robot model shared by all tasks
 	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
@@ -511,107 +550,10 @@ int main(int argc, char** argv)
 
 	// planner used for connect
 	auto pipeline = std::make_shared<solvers::PipelinePlanner>();
-	pipeline->setPlannerId(choosedPlanner);
-
-	geometry_msgs::PoseStamped graspPose_left;
-	graspPose_left.header.frame_id = left_obj;
-	graspPose_left.pose.position.x = 0.00;
-	graspPose_left.pose.position.y = 0.0;
-	graspPose_left.pose.position.z = 0.03;
-	graspPose_left.pose.orientation.x = 0.500;
-	graspPose_left.pose.orientation.y = 0.500;
-	graspPose_left.pose.orientation.z = -0.500;
-	graspPose_left.pose.orientation.w = 0.500;
-
-	geometry_msgs::PoseStamped graspPose_left_2;
-	graspPose_left_2.header.frame_id = "obj_230";
-	graspPose_left_2.pose.position.x = 0.00;
-	graspPose_left_2.pose.position.y = 0.0;
-	graspPose_left_2.pose.position.z = 0.03;
-	graspPose_left_2.pose.orientation.x = 0.500;
-	graspPose_left_2.pose.orientation.y = 0.500;
-	graspPose_left_2.pose.orientation.z = -0.500;
-	graspPose_left_2.pose.orientation.w = 0.500;
-
-	geometry_msgs::PoseStamped movePose_left;
-	movePose_left.header.frame_id = left_obj;
-	movePose_left.pose.position.x = 0.00;
-	movePose_left.pose.position.y = 0.0;
-	movePose_left.pose.position.z = 0.10;
-	movePose_left.pose.orientation.x = 0.500;
-	movePose_left.pose.orientation.y = 0.500;
-	movePose_left.pose.orientation.z = -0.500;
-	movePose_left.pose.orientation.w = 0.500;
-
-	geometry_msgs::PoseStamped movePose_left_2;
-	movePose_left_2.header.frame_id = "obj_230";
-	movePose_left_2.pose.position.x = 0.0;
-	movePose_left_2.pose.position.y = 0.0;
-	movePose_left_2.pose.position.z = 0.10;
-	movePose_left_2.pose.orientation.x = 0.500;
-	movePose_left_2.pose.orientation.y = 0.500;
-	movePose_left_2.pose.orientation.z = -0.500;
-	movePose_left_2.pose.orientation.w = 0.500;
-
-	geometry_msgs::PoseStamped placePoseBox_left;
-	placePoseBox_left.header.frame_id = "base_footprint";
-	placePoseBox_left.pose.position.x = 0.3;
-	placePoseBox_left.pose.position.y = 0.9;
-	placePoseBox_left.pose.position.z = 1.1;
-	placePoseBox_left.pose.orientation.x = 0.500;
-	placePoseBox_left.pose.orientation.y = 0.500;
-	placePoseBox_left.pose.orientation.z = 0.500;
-	placePoseBox_left.pose.orientation.w = 0.500;
-
-	// Create task objects
-	Task moveLeft("moveLeft");
-	Task moveLeft_next("moveLeft_next");
-
-	Task pick_left("pick_left");
-	Task pick_left_next("pick_left_next");
-
-	Task place_left("place_left");
-	Task place_left_next("place_left_next");
+	pipeline->setPlannerId("RRTConnect");
 
 	try
 	{
-		createMoveTask(moveLeft,pipeline, cartesian,kinematic_model,"left_arm", movePose_left);
-		createMoveTask(moveLeft_next,pipeline, cartesian,kinematic_model,"left_arm", movePose_left_2);
-
-		createPickTaskCustom(pick_left,pipeline, cartesian,kinematic_model,"left_arm",left_obj, graspPose_left);
-		createPickTaskCustom(pick_left_next,pipeline, cartesian,kinematic_model,"left_arm","obj_230", graspPose_left_2);
-
-		createPlaceTask(place_left,pipeline,cartesian,kinematic_model,"left_arm",left_obj,placePoseBox_left);
-		createPlaceTask(place_left_next,pipeline,cartesian,kinematic_model,"left_arm","obj_230",placePoseBox_left);
-
-		// Stop perception before moving objects (avoid to create new collision objects)
-		perception.stopPerception();
-
-		// Plan and execute approach movement
-		moveLeft.plan(2);
-		if(execute(moveLeft) == 0)
-		{
-			pick_left.plan(2);
-			if(execute(pick_left) == 0)
-			{
-				place_left.plan(2);
-				if(execute(place_left) == 0)
-				{
-					perception.startPerception();
-					ros::Duration(5).sleep();
-					perception.stopPerception();
-					moveLeft_next.plan(2);
-					execute(moveLeft_next);
-
-					pick_left_next.plan(2);
-					if(execute(pick_left_next) == 0)
-					{
-						place_left_next.plan(2);
-						execute(place_left_next);
-					}
-				}
-			}
-		}
 
 	}
 	catch (const InitStageException& e)

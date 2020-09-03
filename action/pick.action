@@ -1,0 +1,9 @@
+#goal definition
+string objId
+bool planOnly
+---
+#result definition
+moveit_msgs/MoveItErrorCodes error_code
+---
+#feedback
+int32 status
