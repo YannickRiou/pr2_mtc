@@ -10,11 +10,13 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   moveit_ros_planning_interface
   moveit_task_constructor_core
+  moveit_msgs
   roscpp
   rospy
   rviz_marker_tools
   std_msgs
   ontologenius
+  genmsg
 )
 
 ## System dependencies are found with CMake's conventions
@@ -72,10 +74,13 @@ find_package(catkin REQUIRED COMPONENTS
  )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs
+   actionlib_msgs
+   geometry_msgs
+   moveit_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -125,9 +130,9 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(pr2_tasks src/pr2_tasks.cpp src/pr2perception/pr2perception.cpp)
+add_executable(pr2_tasks src/pr2_tasks.cpp)
 target_link_libraries(pr2_tasks ${catkin_LIBRARIES} ${ontologenius_LIBRARIES})
-add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) ${PROJECT_NAME}_gencpp)
+add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 
 
 

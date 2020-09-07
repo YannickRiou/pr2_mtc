@@ -1,4 +1,4 @@
-String[] ids
+string[] ids
 ---
 geometry_msgs/PoseStamped[] poses
 

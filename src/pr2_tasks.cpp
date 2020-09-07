@@ -243,7 +243,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame);
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
-			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"}); // TODO: convenience wrapper
+			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"}); 
 			grasp->insert(std::move(wrapper));
 		}
 
@@ -271,11 +271,11 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 		}
 
 		// ---------------------- Allow collision (object support) ---------------------- //
-		{
+		/*{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (object,support)");
 			stage->allowCollisions({ object }, "boite", true);
 			grasp->insert(std::move(stage));
-		}
+		}*/
 
 			// ---------------------- Lift object ---------------------- //
 		{
@@ -368,7 +368,7 @@ void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, 
 		auto grasp_generator = std::make_unique<stages::GenerateGraspPose>("generate grasp pose");
 		grasp_generator->setAngleDelta(M_PI/2);
 		pickTask.properties().exposeTo(grasp_generator->properties(), { "group","eef"});
-	  grasp_generator->setPreGraspPose(pregrasp);
+	    grasp_generator->setPreGraspPose(pregrasp);
 		grasp_generator->setGraspPose(grasp);
 		grasp_generator->setProperty("object", object);
 		grasp_generator->setMonitoredStage(current_state);
@@ -423,108 +423,215 @@ int execute(Task &t)
 			ROS_ERROR_STREAM("Task execution failed and returned: " << ac.getState().toString());
 			return -1;
 		}
-		return 0;
+		return 1;
 	}
 
 }
 
 
-// One shot, se désabonner à la fin, à rappeler après chaque place
-void PR2manip::objCallback (const toaster_msgs::ObjectListStamped::ConstPtr& msg)
+// Function to ask ontologenius about object id/meshes that are on the table 
+// then ask underworld their positions, and add them to planning scene
+
+void updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 {
-  ontologenius_query::OntologeniusQueryFullService ontoQuery;
 
-  char mesh_uri_c[150];
-  int parseReturn = 0;
-  shape_msgs::Mesh mesh;
-  shapes::ShapeMsg mesh_msg;
-  shapes::Mesh* m;
+	shape_msgs::Mesh mesh;
+  	shapes::ShapeMsg mesh_msg;
+	shapes::Mesh* m;
 
-  std::vector<std::string> tempV;
+	// TODO add cache with a map id/mesh_uri so that I don't need to ask ontologenius twice
 
-  ontoQuery.request.ns = ONTOLOGY_NS;
+	// Define PlanningSceneInterface object to add and remove collision objects
+	moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+	
+	// Define a collision object that will be added to planning scene
+	moveit_msgs::CollisionObject collisionObj;
 
-  // Get ObjID, ObjPose and time from Toaster and put them in the main collision_objects_vector_
-  for(auto toasterObj : msg->objectList)
-  {
-    moveit_msgs::CollisionObject cObj;
+	// TODO CHANGE TABLE WITH PROPER SUPPORT SURFACE NAME (CHECK WITH ONTOLOGY)
+	std::vector<std::string> objIds = ontoHandle->individuals.getOn(SUPPORT_SURFACE,"isUnder");
+	
+	pr2_mtc::getPose srv;
+	srv.request.ids = objIds;
+	if (udwClient.call(srv))
+	{
+		for (int i=0; i < objIds.size(); i++)
+    	{
+			//Verify if frame_id isn't empty
+			// Assume that frame_id is base_footprint 
+			// UWDS publish with frame_id as /map so transform to base_footprint 
+			// TODO add transform from /map to /base_footprint
+			if(!srv.response.poses[i].header.frame_id.empty())
+			{
+				// Ask ontology for mesh ressource URI
+				m = shapes::createMeshFromResource(ontoHandle->individuals.getOn(objIds[i],"hasMesh")[0]);
+				shapes::constructMsgFromShape(m, mesh_msg);
+				mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+				// Add the mesh to the Collision object message
+				collisionObj.meshes.push_back(mesh);
 
-    // Fill in id, timestamp, and pose
-    cObj.id = toasterObj.meEntity.id;
-    geometry_msgs::PoseStamped old_pose, new_pose;
+				// Add poses given by UWDS	
+				collisionObj.header.frame_id = srv.response.poses[i].header.frame_id;
+				collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+				collisionObj.operation = collisionObj.ADD;
 
-    if(msg->header.frame_id != "base_footprint")
-    {
-      try{
-        old_pose.header.frame_id = msg->header.frame_id.substr(1,msg->header.frame_id.size());
-        old_pose.header.stamp = msg->header.stamp;
-        old_pose.pose = toasterObj.meEntity.pose;
-        new_pose = tfBuffer_.transform(old_pose, "base_footprint");
-        cObj.header.frame_id = new_pose.header.frame_id;
-        cObj.header.stamp = new_pose.header.stamp;
-        ROS_INFO_STREAM("Transforming new object, old frame : " << old_pose.header.frame_id << " new frame : " << cObj.header.frame_id);
-      }
-      catch (tf2::TransformException &ex) {
-        ROS_WARN("Exception occured when trying to transform frames %s",ex.what());
-        ros::Duration(1.0).sleep();
-        return;
-      }
-    }
-    else
-    {
-      cObj.header.frame_id = msg->header.frame_id;
-      cObj.header.stamp = msg->header.stamp;
-    }
-    cObj.mesh_poses.push_back(new_pose.pose);
+				planning_scene_interface.applyCollisionObject(collisionObj);
+			}
+		}
+		
+	}
+	else
+	{
+	ROS_ERROR("Failed to call service getPose");
+	}
 
-    // Ask ontology for the mesh and fill it in the collision obj fields.
-    ontoQuery.request.query = cObj.id + " hasMesh ?mesh";
-    if (ontoClient_.call(ontoQuery))
-    {
-      for (int i=0; i < ontoQuery.response.results[0].names.size(); i++)
-      {
-        if (ontoQuery.response.results[0].names[i] == "mesh")
-        {
-          parseReturn = sscanf(ontoQuery.response.results[0].values[i].c_str(), "string#%s",mesh_uri_c);
-          if(parseReturn == 1)
-          {
-            std::string mesh_uri(mesh_uri_c);
-            m = shapes::createMeshFromResource(mesh_uri);
-            shapes::constructMsgFromShape(m, mesh_msg);
-            mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-            // Add the mesh to the Collision object message
-            cObj.meshes.push_back(mesh);
-          }
-        }
-        cObj.operation = cObj.ADD;
-      }
-    }
-    else
-    {
-      ROS_ERROR("Failed to call Ontology for Mesh...");
-      ROS_ERROR("Error : %s",ontoQuery.response.error.c_str());
-      return;
-    }
-
-    std::cout << "Added " << cObj.id << " to the scene" << std::endl;
-
-    // Add the current object to the collision object vector
-    collision_objects_vector_.push_back(cObj);
-  }
-
-  // Now, let's add the collision object into the world
-  // Little sleep necessary before adding it
-  ros::Duration(0.2).sleep();
-  // Add the remaining collision object
-  planning_scene_interface_.addCollisionObjects(collision_objects_vector_);
-
-  // Unsubscribe for now, will re-subscribe after doing a place
-  toaster_sub_.shutdown();
-
-  //TODO Verify timestamp and delete old objects.
 }
 
-OntologyManipulator* onto_;
+/*void feedback()
+{
+
+  ros::Rate loop_rate(1);
+  while (ros::ok())
+  {
+   
+    loop_rate.sleep();
+  }
+}*/
+
+void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solution, int& cost)
+{
+  cost = solution->sub_solution[0].info.cost;
+}
+
+
+// TODO : Create Class to avoid huge number of parameter (let pipelineplanner, cartesianplanner, etc. be attribute of the class)
+void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
+				     const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,ros::NodeHandle& nh)
+{
+	// First update the world
+	updateWorld(udwClient,ontoHandle);
+
+	pr2_mtc::pickFeedback pickFeedback;
+  	pr2_mtc::pickResult pickResult;
+
+    int solutionCost;
+
+	std::string taskName = "pick_" + goal->objId;
+	std::string armGroup;
+
+	ros::Subscriber solutionSub;
+
+	Task pick(taskName);
+
+	moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+	std::vector<std::string> objIds;
+	objIds.push_back(goal->objId);
+	if(planning_scene_interface.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
+	{
+	  	armGroup = "left_arm";
+	}
+	else
+	{
+		armGroup = "right_arm";
+	}
+
+	// TODO : Checks that the orientation of added object is correct
+	geometry_msgs::PoseStamped pickPose;
+	pickPose.header.frame_id = goal->objId;
+	pickPose.pose.position.x = 0.00;
+	pickPose.pose.position.y = 0.0;
+	pickPose.pose.position.z = 0.03;      // TBC
+	pickPose.pose.orientation.x = 0.500;  // TBC
+	pickPose.pose.orientation.y = 0.500;  // TBC
+	pickPose.pose.orientation.z = -0.500; // TBC
+	pickPose.pose.orientation.w = 0.500;  // TBC
+
+
+	createPickTaskCustom(pick,pipeline ,cartesian ,robotModel ,armGroup,goal->objId, pickPose);
+	
+	// TODO give info to supervisor about cost, trajectory/
+
+	if(goal->planOnly)	
+	{	
+
+		// TODO : spawn another thread to plan and send back to supervisor cost and trajectory
+		//boost::thread feedbackThread(feedback);
+
+		if(pick.plan(5))
+		{
+			pick.publishAllSolutions(false);
+		
+			solutionSub = nh.subscribe<moveit_task_constructor_msgs::Solution>("/pr2_task_node/" + taskName + "/solution", 1000, boost::bind(solutionCallback,_1, solutionCost));
+			pickResult.cost = solutionCost;	
+
+			moveit::planning_interface::MoveItErrorCode result(1);
+			pickResult.error_code = result;
+
+			pickServer->setSucceeded(pickResult);
+		}
+		else
+		{
+			moveit::planning_interface::MoveItErrorCode result(-1);
+			pickResult.error_code = result;
+			pickServer->setAborted(pickResult);
+		}
+	}	
+	else
+	{
+		if(execute(pick))
+		{
+			moveit::planning_interface::MoveItErrorCode result(1);
+			pickResult.error_code = result;
+			pickServer->setSucceeded(pickResult);
+		}
+		else
+		{
+			moveit::planning_interface::MoveItErrorCode result(-1);
+			pickResult.error_code = result;
+			pickServer->setAborted(pickResult);
+		}
+	}
+}
+
+
+void placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
+				      const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel)
+{
+	// First update the world
+	updateWorld(udwClient,ontoHandle);
+
+	std::string taskName = "place_into_" + goal->boxId;
+	Task place(taskName);
+
+	if(goal->planOnly)	
+	{
+
+	}	
+	else
+	{
+
+	}
+}
+
+void moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
+				  const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel)
+{
+	// First update the world
+	updateWorld(udwClient,ontoHandle);
+
+	std::string taskName = "move_" + goal->planGroup;
+	Task move(taskName);
+	
+	if(goal->planOnly)	
+	{
+
+	}	
+	else
+	{
+
+	}
+}
+
+
 
 
 int main(int argc, char** argv)
@@ -536,6 +643,8 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz
 
+	// Ontologenius handle
+	OntologyManipulator* onto_;
 	OntologyManipulator onto(&nh);
 	onto_ = &onto;
 	onto.close();
@@ -551,6 +660,16 @@ int main(int argc, char** argv)
 	// planner used for connect
 	auto pipeline = std::make_shared<solvers::PipelinePlanner>();
 	pipeline->setPlannerId("RRTConnect");
+ 
+	// Service to get object pose from underworld
+	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_mtc::getPose>("getPose");
+
+	// Action servers for supervisor 
+  	actionlib::SimpleActionServer<pr2_mtc::pickAction> pickServer(nh, "pick", boost::bind(&pickObjCallback, _1, &pickServer, getPoseSrv, onto_, pipeline, cartesian, kinematic_model,nh), false);
+	actionlib::SimpleActionServer<pr2_mtc::placeAction> placeServer(nh, "place", boost::bind(&placeObjCallback,_1, &placeServer,getPoseSrv, onto_,pipeline, cartesian, kinematic_model), false);
+  	actionlib::SimpleActionServer<pr2_mtc::moveAction> moveServer(nh, "move", boost::bind(&moveCallback, _1, &moveServer,getPoseSrv, onto_,pipeline, cartesian, kinematic_model), false);
+
+	
 
 	try
 	{

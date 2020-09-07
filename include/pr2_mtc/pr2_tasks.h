@@ -46,8 +46,18 @@
 
 #include "ontologenius/OntologyManipulator.h"
 
+#include <boost/thread/thread.hpp>
 
+// Service to get object pose from UDWS
 #include "pr2_mtc/getPose.h"
+
+// Action server for supervisor to call pick, place and move tasks
+#include <pr2_mtc/pickAction.h>
+#include <pr2_mtc/placeAction.h>
+#include <pr2_mtc/moveAction.h>
+
+// Used to ask ontology to get all object on this support surface
+#define SUPPORT_SURFACE "table"
 
 using namespace moveit::task_constructor;
 

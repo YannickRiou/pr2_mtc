@@ -4,6 +4,7 @@ bool planOnly
 ---
 #result definition
 moveit_msgs/MoveItErrorCodes error_code
+int32 cost
 ---
 #feedback
 int32 status
