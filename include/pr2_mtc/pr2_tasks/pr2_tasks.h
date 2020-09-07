@@ -1,3 +1,5 @@
+#pragma once
+
 #include <moveit/task_constructor/task.h>
 
 #include <moveit/task_constructor/stages/current_state.h>
@@ -62,11 +64,50 @@
 using namespace moveit::task_constructor;
 
 
-void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose);
+class motionPlanning
+{
+    public:
+        explicit motionPlanning(ros::NodeHandle nh);
+        ~motionPlanning();
 
-void createMoveTask(Task &moveTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,const std::string planGroup, const geometry_msgs::PoseStamped moveToPose);
+        void createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose);
 
-void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose);
+        void createMoveTask(Task &moveTask, const std::string planGroup, const geometry_msgs::PoseStamped moveToPose);
 
-void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel, const std::string planGroup,const std::string object);
+        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose);
+
+        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object);
+
+        void updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle);
+
+        void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle);
+
+        void placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle);
+
+        void moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle);
+
+
+    private:
+        ros::NodeHandle nh_;
+
+        moveit::planning_interface::PlanningSceneInterface planning_scene_interface_;
+
+        // Robot model shared by all tasks
+        robot_model_loader::RobotModelLoader robot_model_loader_;
+        moveit::core::RobotModelPtr kinematic_model_;
+
+        // planner used for approach and retreat
+        std::shared_ptr<moveit::task_constructor::solvers::CartesianPath> cartesianPlanner_;
+       
+        // planner used for connect
+        std::shared_ptr<moveit::task_constructor::solvers::PipelinePlanner> pipelinePlanner_;
+
+        std::shared_ptr<solvers::JointInterpolationPlanner> gripper_planner_;
+
+        
+
+
+
+
+};
 

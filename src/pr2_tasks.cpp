@@ -9,27 +9,41 @@
  *
  */
 
-#include <pr2_mtc/pr2_tasks.h>
+#include <pr2_mtc/pr2_tasks/pr2_tasks.h>
+
+// TODO Add missing TF2 transform publisher
+motionPlanning::motionPlanning(ros::NodeHandle nh)
+  : nh_(nh),
+	robot_model_loader_("robot_description")
+{
+	kinematic_model_ = robot_model_loader_.getModel();
+
+	cartesianPlanner_ = std::make_shared<solvers::CartesianPath>();
+	cartesianPlanner_->setProperty("jump_threshold", 0.0);
+
+	pipelinePlanner_ = std::make_shared<solvers::PipelinePlanner>();
+	pipelinePlanner_->setPlannerId("RRTConnect");
+
+	gripper_planner_ = std::make_shared<solvers::JointInterpolationPlanner>();
+}
 
 
-/**
- * \fn void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
+motionPlanning::~motionPlanning()
+{
+}
+
+ /**
+ * \fn void createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
  * \brief Function to create a place task with specific pose and object
  *
  * \param placeTask Task to fill
- * \param pipeline planner to be used to connect stages
- * \param cartesian planner to be used for approach and retreat stages
- * \param robotModel Model of the robot (from urdf)
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to be placed (it needs to be already attached to the eef of the associated planGroup)
  * \param placePose Pose where to place the object
  */
-void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian, const moveit::core::RobotModelPtr& robotModel, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
+void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, const geometry_msgs::PoseStamped placePose)
 {
-
-	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
-
-	placeTask.setRobotModel(robotModel);
+	placeTask.setRobotModel(kinematic_model_);
 
 	// Property and variable definitions
 	std::string eef;
@@ -65,7 +79,7 @@ void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipelin
 
 	{
 		// connect to place
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		placeTask.add(std::move(connect));
@@ -95,7 +109,7 @@ void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipelin
 	}
 
 	{
-		auto stage = std::make_unique<stages::MoveTo>("release object", gripper_planner);
+		auto stage = std::make_unique<stages::MoveTo>("release object", gripper_planner_);
 		stage->setGroup(eef);
 		stage->setGoal(ungrasp);
 		placeTask.add(std::move(stage));
@@ -108,9 +122,9 @@ void createPlaceTask(Task &placeTask, const solvers::PipelinePlannerPtr& pipelin
 	}
 }
 
-void createMoveTask(Task &moveTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,const std::string planGroup, const geometry_msgs::PoseStamped moveToPose)
+void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup, const geometry_msgs::PoseStamped moveToPose)
 {
-	moveTask.setRobotModel(robotModel);
+	moveTask.setRobotModel(kinematic_model_);
 	std::string ikFrame;
 		std::string eef;
 	if(planGroup == "left_arm")
@@ -132,7 +146,7 @@ void createMoveTask(Task &moveTask,const solvers::PipelinePlannerPtr& pipeline, 
 
 	{
 		// connect
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline},{eef, pipeline}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		moveTask.add(std::move(connect));
@@ -155,9 +169,9 @@ void createMoveTask(Task &moveTask,const solvers::PipelinePlannerPtr& pipeline, 
 	}
 }
 
-void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose)
+void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose)
 {
-	pickTask.setRobotModel(robotModel);
+	pickTask.setRobotModel(kinematic_model_);
 
 	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
 
@@ -198,7 +212,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 	// ---------------------- open Hand ---------------------- //
 	{
-		auto stage = std::make_unique<stages::MoveTo>("open hand", gripper_planner);
+		auto stage = std::make_unique<stages::MoveTo>("open hand", gripper_planner_);
 		stage->setGroup(eef);
 		stage->setGoal(pregrasp);
 		current_state = stage.get();
@@ -207,7 +221,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 	{
 		// connect to pick
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipeline},{eef, pipeline}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->setTimeout(10.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
@@ -221,7 +235,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
 		{
-			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesian);
+			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
 			stage->setMinMaxDistance(0.01, 0.08);
 			stage->setIKFrame(ikFrame);
@@ -256,7 +270,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 			// ---------------------- Close Hand ---------------------- //
 		{
-			auto stage = std::make_unique<stages::MoveTo>("close hand", gripper_planner);
+			auto stage = std::make_unique<stages::MoveTo>("close hand", gripper_planner_);
 			stage->setGroup(eef);
 			stage->setGoal(postgrasp);
 			grasp->insert(std::move(stage));
@@ -279,7 +293,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 			// ---------------------- Lift object ---------------------- //
 		{
-			auto stage = std::make_unique<stages::MoveRelative>("lift object", cartesian);
+			auto stage = std::make_unique<stages::MoveRelative>("lift object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
 			stage->setMinMaxDistance(0.01, 0.05);
 			stage->setIKFrame(ikFrame);
@@ -293,7 +307,7 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 
 			// ---------------------- Lift object ---------------------- //
 		{
-			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesian);
+			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
 			stage->setMinMaxDistance(0.15, 0.20);
 			stage->setIKFrame(ikFrame);
@@ -308,9 +322,9 @@ void createPickTaskCustom(Task &pickTask,const solvers::PipelinePlannerPtr& pipe
 	}
 
 }
-void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel, const std::string planGroup,const std::string object)
+void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,const std::string object)
 {
-	pickTask.setRobotModel(robotModel);
+	pickTask.setRobotModel(kinematic_model_);
 
 	// Property and variable definitions
 	std::string eef;
@@ -357,7 +371,7 @@ void createPickTask(Task &pickTask,const solvers::PipelinePlannerPtr& pipeline, 
 
 	{
 		// connect to pick
-		stages::Connect::GroupPlannerVector planners = {{eef, pipeline}, {planGroup, pipeline}};
+		stages::Connect::GroupPlannerVector planners = {{eef, pipelinePlanner_}, {planGroup, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		pickTask.add(std::move(connect));
@@ -432,7 +446,7 @@ int execute(Task &t)
 // Function to ask ontologenius about object id/meshes that are on the table 
 // then ask underworld their positions, and add them to planning scene
 
-void updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
+void motionPlanning::updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 {
 
 	shape_msgs::Mesh mesh;
@@ -441,9 +455,6 @@ void updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 
 	// TODO add cache with a map id/mesh_uri so that I don't need to ask ontologenius twice
 
-	// Define PlanningSceneInterface object to add and remove collision objects
-	moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-	
 	// Define a collision object that will be added to planning scene
 	moveit_msgs::CollisionObject collisionObj;
 
@@ -474,7 +485,7 @@ void updateWorld(ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 				collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 				collisionObj.operation = collisionObj.ADD;
 
-				planning_scene_interface.applyCollisionObject(collisionObj);
+				planning_scene_interface_.applyCollisionObject(collisionObj);
 			}
 		}
 		
@@ -504,8 +515,7 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
 
 
 // TODO : Create Class to avoid huge number of parameter (let pipelineplanner, cartesianplanner, etc. be attribute of the class)
-void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
-				     const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel,ros::NodeHandle& nh)
+void motionPlanning::pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 {
 	// First update the world
 	updateWorld(udwClient,ontoHandle);
@@ -522,10 +532,9 @@ void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleAc
 
 	Task pick(taskName);
 
-	moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 	std::vector<std::string> objIds;
 	objIds.push_back(goal->objId);
-	if(planning_scene_interface.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
+	if(planning_scene_interface_.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
 	{
 	  	armGroup = "left_arm";
 	}
@@ -546,7 +555,7 @@ void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleAc
 	pickPose.pose.orientation.w = 0.500;  // TBC
 
 
-	createPickTaskCustom(pick,pipeline ,cartesian ,robotModel ,armGroup,goal->objId, pickPose);
+	createPickTaskCustom(pick,armGroup,goal->objId, pickPose);
 	
 	// TODO give info to supervisor about cost, trajectory/
 
@@ -560,7 +569,7 @@ void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleAc
 		{
 			pick.publishAllSolutions(false);
 		
-			solutionSub = nh.subscribe<moveit_task_constructor_msgs::Solution>("/pr2_task_node/" + taskName + "/solution", 1000, boost::bind(solutionCallback,_1, solutionCost));
+			solutionSub = nh_.subscribe<moveit_task_constructor_msgs::Solution>("/pr2_task_node/" + taskName + "/solution", 1000, boost::bind(solutionCallback,_1, solutionCost));
 			pickResult.cost = solutionCost;	
 
 			moveit::planning_interface::MoveItErrorCode result(1);
@@ -593,8 +602,7 @@ void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleAc
 }
 
 
-void placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
-				      const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel)
+void motionPlanning::placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 {
 	// First update the world
 	updateWorld(udwClient,ontoHandle);
@@ -612,8 +620,7 @@ void placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::Simple
 	}
 }
 
-void moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle,
-				  const solvers::PipelinePlannerPtr& pipeline, const solvers::CartesianPathPtr& cartesian,const moveit::core::RobotModelPtr& robotModel)
+void motionPlanning::moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient, OntologyManipulator* ontoHandle)
 {
 	// First update the world
 	updateWorld(udwClient,ontoHandle);
@@ -643,31 +650,22 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz
 
+	motionPlanning pr2Motion(nh);
+
 	// Ontologenius handle
 	OntologyManipulator* onto_;
 	OntologyManipulator onto(&nh);
 	onto_ = &onto;
 	onto.close();
 
-	// Robot model shared by all tasks
-	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-	moveit::core::RobotModelPtr kinematic_model = robot_model_loader.getModel();
-
-	// planner used for approach and retreat
-	auto cartesian = std::make_shared<solvers::CartesianPath>();
-	cartesian->setProperty("jump_threshold", 0.0);
-
-	// planner used for connect
-	auto pipeline = std::make_shared<solvers::PipelinePlanner>();
-	pipeline->setPlannerId("RRTConnect");
  
 	// Service to get object pose from underworld
 	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_mtc::getPose>("getPose");
 
 	// Action servers for supervisor 
-  	actionlib::SimpleActionServer<pr2_mtc::pickAction> pickServer(nh, "pick", boost::bind(&pickObjCallback, _1, &pickServer, getPoseSrv, onto_, pipeline, cartesian, kinematic_model,nh), false);
-	actionlib::SimpleActionServer<pr2_mtc::placeAction> placeServer(nh, "place", boost::bind(&placeObjCallback,_1, &placeServer,getPoseSrv, onto_,pipeline, cartesian, kinematic_model), false);
-  	actionlib::SimpleActionServer<pr2_mtc::moveAction> moveServer(nh, "move", boost::bind(&moveCallback, _1, &moveServer,getPoseSrv, onto_,pipeline, cartesian, kinematic_model), false);
+  	actionlib::SimpleActionServer<pr2_mtc::pickAction> pickServer(nh, "pick", boost::bind(&motionPlanning::pickObjCallback, &pr2Motion, _1, &pickServer, getPoseSrv, onto_), false);
+	actionlib::SimpleActionServer<pr2_mtc::placeAction> placeServer(nh, "place", boost::bind(&motionPlanning::placeObjCallback, &pr2Motion, _1, &placeServer,getPoseSrv, onto_), false);
+  	actionlib::SimpleActionServer<pr2_mtc::moveAction> moveServer(nh, "move", boost::bind(&motionPlanning::moveCallback, &pr2Motion, _1, &moveServer,getPoseSrv, onto_), false);
 
 	
 
