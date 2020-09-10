@@ -135,6 +135,13 @@ target_link_libraries(pr2_tasks ${catkin_LIBRARIES} ${ontologenius_LIBRARIES})
 add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 
 
+add_executable(actionClient src/actionClient.cpp)
+target_link_libraries(actionClient ${catkin_LIBRARIES})
+add_dependencies(actionClient ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+
+add_executable(underworldServer src/underworldServer.cpp)
+target_link_libraries(underworldServer ${catkin_LIBRARIES})
+add_dependencies(underworldServer ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
 add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
