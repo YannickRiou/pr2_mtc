@@ -4,7 +4,7 @@
 #include <actionlib/client/terminal_state.h>
 #include <pr2_mtc/getPose.h>
 
-
+bool flagPick = false;
 
 bool getPose(pr2_mtc::getPose::Request  &req, pr2_mtc::getPose::Response &res)
 {
@@ -70,6 +70,15 @@ bool getPose(pr2_mtc::getPose::Request  &req, pr2_mtc::getPose::Response &res)
         }
         else if(req.ids[i] == "cube_GBTG_2")
         {
+            
+            if(flagPick == false)
+            {
+                flagPick =true;
+            }
+            else 
+            {
+                pose_cube_GBTG_2.header.frame_id="";
+            }
             res.poses.push_back(pose_cube_GBTG_2);
         }
         else if(req.ids[i] == "cube_GBCB")

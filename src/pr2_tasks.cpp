@@ -571,10 +571,7 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 
     std::string armGroup;
 
-  	std::string taskName = goal->action + "_" + goal->objId;
-
-	// Create Task 
-	lastPlannedTask_ =  std::make_shared<Task>(taskName);
+  
 
 	//====== PICK ======//
 	if(goal->action == "pick")
@@ -604,28 +601,41 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 		pickPose.pose.orientation.z = 0.0;   // TBC
 		pickPose.pose.orientation.w = 1.0;   // TBC
 
+		std::string taskName = goal->action + "_" + goal->objId;
+
+		// Create Task 
+		lastPlannedTask_ = std::make_shared<Task>(taskName);
+
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, pickPose);
 	}
 	//====== PLACE ======//
 	else if(goal->action == "place")
 	{
-
 		// TODO : Checks that the orientation of box is correct
 		geometry_msgs::PoseStamped placePose;
 		placePose.header.frame_id = goal->boxId;
-		placePose.pose.position.x = -0.01;
-		placePose.pose.position.y = 0.0;
+		placePose.pose.position.x = 0.0;
+		placePose.pose.position.y = -0.03;
 		placePose.pose.position.z = 0.0;
 		placePose.pose.orientation.x = 0.0;  	// TBC
 		placePose.pose.orientation.y = 0.0; 	// TBC
 		placePose.pose.orientation.z = 0.707; 	// TBC
 		placePose.pose.orientation.w = 0.707;   // TBC
 
+		std::string taskName = goal->action + "_in_" + goal->boxId;
+
+		// Create Task 
+		lastPlannedTask_ = std::make_shared<Task>(taskName);
+
 		createPlaceTask(*lastPlannedTask_, goal->planGroup, goal->objId, placePose);
 	}
 	//====== MOVE ======//
 	else if (goal->action == "move")
 	{
+		std::string taskName = goal->action + "_" + goal->planGroup;
+		// Create Task 
+		lastPlannedTask_ = std::make_shared<Task>(taskName);
+
 		createMoveTask(*lastPlannedTask_, goal->planGroup,goal->pose);
 	}
 

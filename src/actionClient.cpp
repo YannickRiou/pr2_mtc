@@ -41,6 +41,18 @@ int main(int argc, char **argv)
 
     bool finished_before_timeout_execute = execute.waitForResult();
     ROS_INFO_STREAM("Execution finished with status : " << execute.getResult()->error_code);
+
+    planGoal.planGroup = "left_arm";
+    planGoal.boxId = "box_C5";
+    planGoal.action = "place";
+    plan.sendGoal(planGoal);
+
+    plan.waitForResult();
+    ROS_INFO_STREAM("Solution have cost : " << plan.getResult()->cost);
+    execute.sendGoal(executeGoal);
+
+    execute.waitForResult();
+    ROS_INFO_STREAM("Execution finished with status : " << execute.getResult()->error_code);
   }
 
 
