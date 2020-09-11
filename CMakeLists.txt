@@ -68,9 +68,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate actions in the 'action' folder
  add_action_files(
    FILES
-   move.action
-   pick.action
-   place.action
+   plan.action
+   execute.action
  )
 
 ## Generate added messages and services with any dependencies listed here

@@ -1,7 +1,9 @@
 #goal definition
+string action
 string boxId
 string objId
-bool planOnly
+string planGroup
+geometry_msgs/PoseStamped pose
 ---
 #result definition
 moveit_msgs/MoveItErrorCodes error_code

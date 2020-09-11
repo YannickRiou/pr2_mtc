@@ -424,30 +424,6 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 	}
 }
 
-int execute(Task &t)
-{
-
-	if(t.solutions().size() > 0)
-	{
-		actionlib::SimpleActionClient<moveit_task_constructor_msgs::ExecuteTaskSolutionAction> ac("execute_task_solution", true);
-		ac.waitForServer();
-		ROS_INFO("Executing solution trajectory");
-		moveit_task_constructor_msgs::ExecuteTaskSolutionGoal execute_goal;
-		t.solutions().front()->fillMessage(execute_goal.solution);
-		ac.sendGoal(execute_goal);
-		ac.waitForResult();
-		moveit_msgs::MoveItErrorCodes execute_result = ac.getResult()->error_code;
-
-		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
-			ROS_ERROR_STREAM("Task execution failed and returned: " << ac.getState().toString());
-			return -1;
-		}
-		return 1;
-	}
-
-}
-
-
 // Function to ask ontologenius about object id/meshes that are on the table 
 // then ask underworld their positions, and add them to planning scene
 
@@ -585,82 +561,88 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
   cost = solution->sub_solution[0].info.cost;
 }
 
-
-void motionPlanning::pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient)
+void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::planAction>* planServer, ros::ServiceClient& udwClient)
 {
 	// First update the world
 	updateWorld(udwClient);
 
-	pr2_mtc::pickFeedback pickFeedback;
-  	pr2_mtc::pickResult pickResult;
+	pr2_mtc::planFeedback planFeedback;
+  	pr2_mtc::planResult planResult;
 
-	std::string taskName = "pick_" + goal->objId;
-	std::string armGroup;
+    std::string armGroup;
 
-	Task pick(taskName);
+  	std::string taskName = goal->action + "_" + goal->objId;
 
-	std::vector<std::string> objIds;
-	objIds.push_back(goal->objId);
-	if(planning_scene_interface_.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
-	{
-	  	armGroup = "left_arm";
+	// Create Task 
+	lastPlannedTask_ =  std::make_shared<Task>(taskName);
+
+	//====== PICK ======//
+	if(goal->action == "pick")
+	{ 
+		if(goal->planGroup.empty())
+		{
+			std::vector<std::string> objIds;
+			objIds.push_back(goal->objId);
+			if(planning_scene_interface_.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
+			{
+				armGroup = "left_arm";
+			}
+			else
+			{
+				armGroup = "right_arm";
+			}
+		}
+
+		// TODO : Checks that the orientation of added object is correct
+		geometry_msgs::PoseStamped pickPose;
+		pickPose.header.frame_id = goal->objId;
+		pickPose.pose.position.x = -0.03;
+		pickPose.pose.position.y = 0.0;
+		pickPose.pose.position.z = 0.0;      // TBC
+		pickPose.pose.orientation.x = 0.0;   // TBC
+		pickPose.pose.orientation.y = 0.0;   // TBC
+		pickPose.pose.orientation.z = 0.0;   // TBC
+		pickPose.pose.orientation.w = 1.0;   // TBC
+
+		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, pickPose);
 	}
-	else
+	//====== PLACE ======//
+	else if(goal->action == "place")
 	{
-		armGroup = "right_arm";
+
+		// TODO : Checks that the orientation of box is correct
+		geometry_msgs::PoseStamped placePose;
+		placePose.header.frame_id = goal->boxId;
+		placePose.pose.position.x = -0.01;
+		placePose.pose.position.y = 0.0;
+		placePose.pose.position.z = 0.0;
+		placePose.pose.orientation.x = 0.0;  	// TBC
+		placePose.pose.orientation.y = 0.0; 	// TBC
+		placePose.pose.orientation.z = 0.707; 	// TBC
+		placePose.pose.orientation.w = 0.707;   // TBC
+
+		createPlaceTask(*lastPlannedTask_, goal->planGroup, goal->objId, placePose);
+	}
+	//====== MOVE ======//
+	else if (goal->action == "move")
+	{
+		createMoveTask(*lastPlannedTask_, goal->planGroup,goal->pose);
 	}
 
-	// TODO : Checks that the orientation of added object is correct
-	geometry_msgs::PoseStamped pickPose;
-	pickPose.header.frame_id = goal->objId;
-	pickPose.pose.position.x = -0.03;
-	pickPose.pose.position.y = 0.0;
-	pickPose.pose.position.z = 0.0;      // TBC
-	pickPose.pose.orientation.x = 0.0;  // TBC
-	pickPose.pose.orientation.y = 0.0;  // TBC
-	pickPose.pose.orientation.z = 0.0; // TBC
-	pickPose.pose.orientation.w = 0.0;  // TBC
-
-
-	createPickTaskCustom(pick,armGroup,goal->objId, pickPose);
-	
-	// TODO : spawn another thread to plan and send back to supervisor cost and trajectory
-	//boost::thread feedbackThread(feedback);
 	try
 	{
-		if(pick.plan(2))
+		if(lastPlannedTask_->plan(2))
 		{
-	
-			pickResult.cost = pick.solutions().front()->cost();	
-
-			if(goal->planOnly)	
-			{
-				moveit::planning_interface::MoveItErrorCode result(1);
-				pickResult.error_code = result;
-				pickServer->setSucceeded(pickResult);
-			}
-			else	
-			{
-				if(execute(pick))
-				{
-					moveit::planning_interface::MoveItErrorCode result(1);
-					pickResult.error_code = result;
-					pickServer->setSucceeded(pickResult);
-					ROS_ERROR("SUCCESS SENT BACK !");
-				}
-				else
-				{
-					moveit::planning_interface::MoveItErrorCode result(-1);
-					pickResult.error_code = result;
-					pickServer->setAborted(pickResult);
-				}
-			}
+			moveit::planning_interface::MoveItErrorCode result(1);
+			planResult.error_code = result;
+			planResult.cost = lastPlannedTask_->solutions().front()->cost();	
+			planServer->setSucceeded(planResult);
 		}
 		else
 		{
 			moveit::planning_interface::MoveItErrorCode result(-1);
-			pickResult.error_code = result;
-			pickServer->setAborted(pickResult);
+			planResult.error_code = result;
+			planServer->setAborted(planResult);
 		}
 	}
 	catch (const InitStageException& e)
@@ -670,140 +652,47 @@ void motionPlanning::pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  act
 
 }
 
-
-void motionPlanning::placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient)
+void motionPlanning::executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::executeAction>* executeServer)
 {
-	// First update the world
-	//updateWorld(udwClient);
+	pr2_mtc::executeFeedback executeFeedback;
+  	pr2_mtc::executeResult executeResult;
 
-	std::string taskName = "place_into_" + goal->boxId;
-	std::string armGroup;
-	Task place(taskName);	
+	moveit_task_constructor_msgs::ExecuteTaskSolutionGoal execute_goal;
 
-	pr2_mtc::placeFeedback placeFeedback;
-  	pr2_mtc::placeResult placeResult;
+	actionlib::SimpleActionClient<moveit_task_constructor_msgs::ExecuteTaskSolutionAction> executeTask("execute_task_solution", true);
+	executeTask.waitForServer();
 
-	std::vector<std::string> objIds;
+	// Verify that task had solutions
+	if(lastPlannedTask_->solutions().size() > 0)
+	{		
+		ROS_INFO("Executing solution trajectory");
 
-	objIds.push_back(goal->objId);
-	if(planning_scene_interface_.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
-	{
-	  	armGroup = "left_arm";
+		// Fill the solution message
+		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
+
+		executeTask.sendGoal(execute_goal);
+
+		// TODO maybe add a timeout to avoid blocking
+		executeTask.waitForResult();
+
+		moveit_msgs::MoveItErrorCodes execute_result = executeTask.getResult()->error_code;
+
+		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS) 
+		{
+			ROS_ERROR_STREAM("Task execution failed and returned: " << executeTask.getState().toString());
+			moveit::planning_interface::MoveItErrorCode result(99999);
+			executeResult.error_code = result;
+			executeServer->setAborted(executeResult);
+		}
+		moveit::planning_interface::MoveItErrorCode result(1);
+		executeResult.error_code = result;
+		executeServer->setAborted(executeResult);
 	}
 	else
 	{
-		armGroup = "right_arm";
-	}
-
-	// TODO : Checks that the orientation of box is correct
-	geometry_msgs::PoseStamped placePose;
-	placePose.header.frame_id = goal->boxId;
-	placePose.pose.position.x = -0.01;
-	placePose.pose.position.y = 0.0;
-	placePose.pose.position.z = 0.0;
-	placePose.pose.orientation.x = 0.0; // TBC
-	placePose.pose.orientation.y = 0.0; // TBC
-	placePose.pose.orientation.z = 0.707; // TBC
-	placePose.pose.orientation.w = 0.707; // TBC
-
-	createPlaceTask(place, armGroup, goal->objId, placePose);
-	try
-	{
-		if(place.plan(2))
-		{
-			placeResult.cost = place.solutions().front()->cost();	
-		
-			if(goal->planOnly)	
-			{
-				moveit::planning_interface::MoveItErrorCode result(1);
-				placeResult.error_code = result;
-				placeServer->setSucceeded(placeResult);
-			}
-			else	
-			{
-				if(execute(place))
-				{
-					moveit::planning_interface::MoveItErrorCode result(1);
-					placeResult.error_code = result;
-					placeServer->setSucceeded(placeResult);
-				}
-				else
-				{
-					moveit::planning_interface::MoveItErrorCode result(-1);
-					placeResult.error_code = result;
-					placeServer->setAborted(placeResult);
-				}
-			}
-		}
-		else
-		{
-			moveit::planning_interface::MoveItErrorCode result(-1);
-			placeResult.error_code = result;
-			placeServer->setAborted(placeResult);
-		}
-	}	
-	catch (const InitStageException& e)
-	{
-		ROS_ERROR_STREAM(e);
-	}
-
-	std::cout << "waiting for any key + <enter>\n";
-		char ch;
-		std::cin >> ch;
-
-}
-
-void motionPlanning::moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient)
-{
-	// First update the world
-	updateWorld(udwClient);
-
-	std::string taskName = "move_" + goal->planGroup;
-	Task move(taskName);
-
-	pr2_mtc::moveFeedback moveFeedback;
-  	pr2_mtc::moveResult moveResult;
-
-	createMoveTask(move, goal->planGroup,goal->pose);
-	
-	try
-	{
-		if(move.plan(2))
-		{
-			moveResult.cost = move.solutions().front()->cost();	
-
-			if(goal->planOnly)	
-			{
-				moveit::planning_interface::MoveItErrorCode result(1);
-				moveResult.error_code = result;
-				moveServer->setSucceeded(moveResult);
-			}
-			else	
-			{
-				if(execute(move))
-				{
-					moveit::planning_interface::MoveItErrorCode result(1);
-					moveResult.error_code = result;
-					moveServer->setSucceeded(moveResult);
-				}
-				else
-				{
-					moveit::planning_interface::MoveItErrorCode result(-1);
-					moveResult.error_code = result;
-					moveServer->setAborted(moveResult);
-				}
-			}
-		}
-		else
-		{
-			moveit::planning_interface::MoveItErrorCode result(-1);
-			moveResult.error_code = result;
-			moveServer->setAborted(moveResult);
-		}
-	}
-	catch (const InitStageException& e)
-	{
-		ROS_ERROR_STREAM(e);
+		moveit::planning_interface::MoveItErrorCode result(-2);
+		executeResult.error_code = result;
+		executeServer->setAborted(executeResult);
 	}
 }
 
@@ -817,27 +706,19 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz+
 
-	ROS_ERROR("STARTED NODE");
-
-
 	motionPlanning pr2Motion;
 	
 	// Service to get object pose from underworld
 	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_mtc::getPose>("/underworldServer/getPose");
 	ros::service::waitForService("/underworldServer/getPose", -1);
 
-	ROS_ERROR("STARTED SERVICE CLIENT");
-
-
 	// Action servers for supervisor 
-  	actionlib::SimpleActionServer<pr2_mtc::pickAction> pickServer(nh, "pick", boost::bind(&motionPlanning::pickObjCallback, &pr2Motion, _1, &pickServer, getPoseSrv), false);
-	actionlib::SimpleActionServer<pr2_mtc::placeAction> placeServer(nh, "place", boost::bind(&motionPlanning::placeObjCallback, &pr2Motion, _1, &placeServer,getPoseSrv), false);
-  	actionlib::SimpleActionServer<pr2_mtc::moveAction> moveServer(nh, "move", boost::bind(&motionPlanning::moveCallback, &pr2Motion, _1, &moveServer,getPoseSrv), false);
-
-	pickServer.start();
-	placeServer.start();
-	moveServer.start();
+  	actionlib::SimpleActionServer<pr2_mtc::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
+	planServer.start();
 	
+  	actionlib::SimpleActionServer<pr2_mtc::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer), false);
+	executeServer.start();
+
 	ROS_ERROR("STARTED ACTION SERVS");
 
 	while(ros::ok());

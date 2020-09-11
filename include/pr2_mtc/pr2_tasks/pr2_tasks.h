@@ -65,9 +65,8 @@
 #include <pr2_mtc/getPose.h>
 
 // Action server for supervisor to call pick, place and move tasks
-#include <pr2_mtc/pickAction.h>
-#include <pr2_mtc/placeAction.h>
-#include <pr2_mtc/moveAction.h>
+#include <pr2_mtc/planAction.h>
+#include <pr2_mtc/executeAction.h>
 
 // Used to ask ontology to get all object on this support surface
 #define SUPPORT_SURFACE "table_1"
@@ -90,15 +89,18 @@ class motionPlanning
 
         void updateWorld(ros::ServiceClient& udwClient);
 
-        void pickObjCallback(const pr2_mtc::pickGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::pickAction>* pickServer, ros::ServiceClient& udwClient);
+        void planCallback(const pr2_mtc::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::planAction>* planServer, ros::ServiceClient& udwClient);
 
-        void placeObjCallback(const pr2_mtc::placeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::placeAction>* placeServer, ros::ServiceClient& udwClient);
+        void executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::executeAction>* executeServer);
 
-        void moveCallback(const pr2_mtc::moveGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::moveAction>* moveServer, ros::ServiceClient& udwClient);
 
 
     private:
         ros::NodeHandle nh_;
+
+        // Variable to store the last task that was planned 
+        // To be able to execute it afterward
+        std::shared_ptr<Task> lastPlannedTask_;
 
         OntologyManipulator onto_;
         

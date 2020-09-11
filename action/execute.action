@@ -1,0 +1,6 @@
+
+---
+moveit_msgs/MoveItErrorCodes error_code
+---
+#feedback
+int32 status
