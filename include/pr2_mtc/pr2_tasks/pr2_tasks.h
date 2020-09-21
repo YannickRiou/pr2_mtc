@@ -87,7 +87,7 @@ class motionPlanning
 
         void createPickTask(Task &pickTask, const std::string planGroup,const std::string object);
 
-        void updateWorld(ros::ServiceClient& udwClient);
+        int updateWorld(ros::ServiceClient& udwClient);
 
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient);
 

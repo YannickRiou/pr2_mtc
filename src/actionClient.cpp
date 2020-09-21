@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   bool finished_before_timeout_pick = plan.waitForResult();
   ROS_INFO_STREAM("Solution have cost : " << plan.getResult()->cost);
 
-  if(finished_before_timeout_pick && (plan.getResult()->error_code.val == 1))
+  if(finished_before_timeout_pick && (plan.getResult()->error_code == 1))
   {
     ROS_INFO("Sending execute goal !");
     pr2_motion_tasks_msgs::executeGoal executeGoal;
