@@ -2,8 +2,9 @@
 
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
-#include <pr2_mtc/planAction.h>
-#include <pr2_mtc/executeAction.h>
+#include <moveit_msgs/MoveItErrorCodes.h>
+#include <pr2_motion_tasks_msgs/planAction.h>
+#include <pr2_motion_tasks_msgs/executeAction.h>
 
 int main(int argc, char **argv)
 {
@@ -13,9 +14,9 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(8);
   spinner.start();
 
-  actionlib::SimpleActionClient<pr2_mtc::planAction> plan("/pr2_tasks_node/plan", true);
+  actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> plan("/pr2_tasks_node/plan", true);
 
-  actionlib::SimpleActionClient<pr2_mtc::executeAction> execute("/pr2_tasks_node/execute", true);
+  actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction> execute("/pr2_tasks_node/execute", true);
 
 
   ROS_INFO("Waiting for action server to start.");
@@ -24,7 +25,7 @@ int main(int argc, char **argv)
   execute.waitForServer(); //will wait for infinite time
 
   ROS_INFO("Sending pick goal !");
-  pr2_mtc::planGoal planGoal;
+  pr2_motion_tasks_msgs::planGoal planGoal;
   planGoal.objId = "cube_GBTG_2";
   planGoal.action = "pick";
   plan.sendGoal(planGoal);
@@ -33,16 +34,16 @@ int main(int argc, char **argv)
   bool finished_before_timeout_pick = plan.waitForResult();
   ROS_INFO_STREAM("Solution have cost : " << plan.getResult()->cost);
 
-  if(finished_before_timeout_pick)
+  if(finished_before_timeout_pick && (plan.getResult()->error_code.val == 1))
   {
     ROS_INFO("Sending execute goal !");
-    pr2_mtc::executeGoal executeGoal;
+    pr2_motion_tasks_msgs::executeGoal executeGoal;
     execute.sendGoal(executeGoal);
 
     bool finished_before_timeout_execute = execute.waitForResult();
     ROS_INFO_STREAM("Execution finished with status : " << execute.getResult()->error_code);
 
-    planGoal.planGroup = "left_arm";
+    planGoal.planGroup = "right_arm";
     planGoal.boxId = "box_C5";
     planGoal.action = "place";
     plan.sendGoal(planGoal);

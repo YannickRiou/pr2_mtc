@@ -1,6 +1,6 @@
 <launch>
 
-<arg name="fake_execution" value="true"/>
+<arg name="fake_execution" value="false"/>
 
 <include file="$(find pr2_moveit_config)/launch/pr2_moveit.launch">
   <arg name="fake" value="$(arg fake_execution)"/>
@@ -16,8 +16,6 @@
   <!-- Given the published joint states, publish tf for the robot links -->
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
 </group>
-
-<node pkg="tf" type="static_transform_publisher" name="virtual_joint_broadcaster_map" args="0 0 0 0 0 0 map odom_combined 100" />
 
 <node name="underworldServer" pkg="pr2_mtc" type="underworldServer" respawn="false" output="screen"/>
 

@@ -62,11 +62,11 @@
 #include "ontologenius/OntologyManipulator.h"
 
 // Service to get object pose from UDWS
-#include <pr2_mtc/getPose.h>
+#include <pr2_motion_tasks_msgs/GetPose.h>
 
 // Action server for supervisor to call pick, place and move tasks
-#include <pr2_mtc/planAction.h>
-#include <pr2_mtc/executeAction.h>
+#include <pr2_motion_tasks_msgs/planAction.h>
+#include <pr2_motion_tasks_msgs/executeAction.h>
 
 // Used to ask ontology to get all object on this support surface
 #define SUPPORT_SURFACE "table_1"
@@ -89,21 +89,21 @@ class motionPlanning
 
         void updateWorld(ros::ServiceClient& udwClient);
 
-        void planCallback(const pr2_mtc::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::planAction>* planServer, ros::ServiceClient& udwClient);
+        void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient);
 
-        void executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::executeAction>* executeServer);
+        void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer);
 
 
 
     private:
         ros::NodeHandle nh_;
 
-        // Variable to store the last task that was planned 
+        // Variable to store the last task that was planned
         // To be able to execute it afterward
         std::shared_ptr<Task> lastPlannedTask_;
 
         OntologyManipulator onto_;
-        
+
         geometry_msgs::TransformStamped mainTransform_;
         tf2_ros::Buffer tfBuffer_;
         tf2_ros::TransformListener transformListenner_;
@@ -119,16 +119,16 @@ class motionPlanning
 
         // planner used for approach and retreat
         std::shared_ptr<moveit::task_constructor::solvers::CartesianPath> cartesianPlanner_;
-       
+
         // planner used for connect
         std::shared_ptr<moveit::task_constructor::solvers::PipelinePlanner> pipelinePlanner_;
 
+        // planner used for gripper open/close movements
         std::shared_ptr<solvers::JointInterpolationPlanner> gripper_planner_;
 
-        
+
 
 
 
 
 };
-

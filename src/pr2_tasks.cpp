@@ -11,26 +11,35 @@
 
 #include <pr2_mtc/pr2_tasks/pr2_tasks.h>
 
+// Class constructor
 motionPlanning::motionPlanning()
   : onto_(&nh_),
 	robot_model_loader_("robot_description"),
 	transformListenner_(tfBuffer_)
 {
+	// Close ontology
 	onto_.close();
-	onto_.verbose(true);
+	
+	// Set to verbose when debugging
+	//onto_.verbose(true);
+
+	// Load the common kinematic model of the robot that will be used when creating a task with MTC
 	kinematic_model_ = robot_model_loader_.getModel();
 
+	// Create the common cartesian planner that will be used for translation movement when creating task with MTC
 	cartesianPlanner_ = std::make_shared<solvers::CartesianPath>();
 	cartesianPlanner_->setProperty("jump_threshold", 0.0);
 
+	// Create the common pipeline planner (by default RRTConnect) that will be used when creating a task with MTC
 	pipelinePlanner_ = std::make_shared<solvers::PipelinePlanner>();
 	pipelinePlanner_->setPlannerId("RRTConnect");
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.01);
 
+	// Create the common planner for gripper open/close movement when creating task with MTC
 	gripper_planner_ = std::make_shared<solvers::JointInterpolationPlanner>();
 }
 
-
+// Class destructor
 motionPlanning::~motionPlanning()
 {
 }
@@ -72,7 +81,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		ungrasp = "right_open";
 	}
 
-	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.001);
+	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
 
 	//Start state
@@ -90,10 +99,40 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		placeTask.add(std::move(connect));
 	}
 
+	// Temporary set an approach stage to avoid solutions with collisions 
+  	{
+		geometry_msgs::PoseStamped approachPlace;
+		approachPlace = placePose;
+		approachPlace.pose.position.y = approachPlace.pose.position.y-0.15;
+
+		auto stage = std::make_unique<stages::GeneratePose>("approach to pose");
+		stage->setProperty("group",planGroup);
+		stage->setProperty("eef",eef);
+		stage->setPose(approachPlace);
+		stage->setMonitoredStage(current_state);
+		current_state = stage.get();
+
+		auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
+		wrapper->setMaxIKSolutions(32);
+		wrapper->setIKFrame(ikFrame);
+		wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group" });
+		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
+		placeTask.add(std::move(wrapper));
+	}
+
+	{
+		// connect to place
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
+		auto connect = std::make_unique<stages::Connect>("connect", planners);
+		connect->properties().configureInitFrom(Stage::PARENT);
+		placeTask.add(std::move(connect));
+	}
+
 	{
 		auto stage = std::make_unique<stages::GeneratePlacePose>("place pose");
 		stage->setPose(placePose);
 		stage->setObject(object);
+    	stage->setMonitoredStage(current_state);
 		placeTask.properties().exposeTo(stage->properties(), { "eef", "group"});
 
 		geometry_msgs::PoseStamped ik;
@@ -102,7 +141,6 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		ik.pose.position.y=  0;
 		ik.pose.position.z=  0;
 		stage->setProperty("ik_frame",ik);
-		stage->setMonitoredStage(current_state);
 
 		auto wrapper = std::make_unique<stages::ComputeIK>("place pose kinematics", std::move(stage));
 		wrapper->setMaxIKSolutions(32);
@@ -126,6 +164,14 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	}
 }
 
+ /**
+ * \fn void createMoveTask(Task &moveTask, const std::string planGroup,const geometry_msgs::PoseStamped moveToPose)
+ * \brief Function to create a move task with specific pose and planGroup (arm)
+ *
+ * \param moveTask Task to fill
+ * \param planGroup Moveit planning group (ie. arm doing the place)
+ * \param moveToPose Pose where to place the frame (r_gripper_tool_frame or l_gripper_tool_frame depending on planGroup) 
+ */
 void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,const geometry_msgs::PoseStamped moveToPose)
 {
 	moveTask.setRobotModel(kinematic_model_);
@@ -173,6 +219,15 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
 	}
 }
 
+ /**
+ * \fn void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose)
+ * \brief Function to create a pick task with specific grasp pose and planGroup (arm)
+ *
+ * \param pickTask Task to fill
+ * \param planGroup Moveit planning group (ie. arm doing the place)
+ * \param object Object to pick 
+ * \param graspPose Grasp pose to be used when picking the object 
+ */
 void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose)
 {
 	pickTask.setRobotModel(kinematic_model_);
@@ -201,12 +256,13 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		pickTask.setProperty("group",planGroup);
 		pickTask.setProperty("eef","right_gripper");
 		eef = "right_gripper";
+		pregrasp = "right_open";
 		postgrasp = "right_close";
 		ikFrame = "r_gripper_tool_frame";
 	}
 
 
-	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.001);
+	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -247,7 +303,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = object;
-			vec.vector.z = -1.0;
+			vec.vector.x = 1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -262,7 +318,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame);
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
-			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"}); 
+			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
 			grasp->insert(std::move(wrapper));
 		}
 
@@ -296,25 +352,25 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			grasp->insert(std::move(stage));
 		}*/
 
-			// ---------------------- Lift object ---------------------- //
-		{
-			auto stage = std::make_unique<stages::MoveRelative>("lift object", cartesianPlanner_);
-			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.01, 0.05);
-			stage->setIKFrame(ikFrame);
-			// Set upward direction
-			geometry_msgs::Vector3Stamped vec;
-			vec.header.frame_id = "base_footprint";
-			vec.vector.z = 1.0;
-			stage->setDirection(vec);
-			grasp->insert(std::move(stage));
-		}
+      // ---------------------- Lift object ---------------------- //
+    {
+      auto stage = std::make_unique<stages::MoveRelative>("lift object", cartesianPlanner_);
+      stage->properties().configureInitFrom(Stage::PARENT, { "group" });
+      stage->setMinMaxDistance(0.02, 0.20);
+      stage->setIKFrame(ikFrame);
+      // Set upward direction
+      geometry_msgs::Vector3Stamped vec;
+      vec.header.frame_id = "base_footprint";
+      vec.vector.z = 1.0;
+      stage->setDirection(vec);
+      grasp->insert(std::move(stage));
+    }
 
-			// ---------------------- Lift object ---------------------- //
+			// ---------------------- retreat object ---------------------- //
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.15, 0.20);
+			stage->setMinMaxDistance(0.10, 0.15);
 			stage->setIKFrame(ikFrame);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -327,6 +383,15 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	}
 
 }
+
+ /**
+ * \fn void createPickTask(Task &pickTask, const std::string planGroup,const std::string object)
+ * \brief Function to create a pick task with grasp pose generator and planGroup (arm)
+ *
+ * \param pickTask Task to fill
+ * \param planGroup Moveit planning group (ie. arm doing the place)
+ * \param object Object to pick 
+ */
 void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,const std::string object)
 {
 	pickTask.setRobotModel(kinematic_model_);
@@ -424,12 +489,19 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 	}
 }
 
-// Function to ask ontologenius about object id/meshes that are on the table 
-// then ask underworld their positions, and add them to planning scene
-
-void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
+ /**
+ * \fn void updateWorld(ros::ServiceClient& udwClient)
+ * \brief Function to ask ontologenius about object id/meshes that are on the table then ask underworld their positions, and add them to planning scene
+ *
+ * \param udwClient Handle on the underworld service to get poses of the object in the scene.
+ * 
+ * \return 0 if everything went fine, 
+ * 		   1 if failed to get transform between map and base_footprint
+ * 		   2 if failed to get meshes from ontologenius 
+ * 		   3 if failed to get Ids from Underworld service
+ */
+int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 {
-
 	shape_msgs::Mesh mesh;
   	shapes::ShapeMsg mesh_msg;
 	shapes::Mesh* m;
@@ -438,29 +510,29 @@ void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 	moveit_msgs::CollisionObject collisionObj;
 
-
 	geometry_msgs::PoseStamped colliObjPosetransformed;
 	geometry_msgs::PoseStamped colliObjPoseUntransformed;
 
 
 	// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
+	// Will wait for 5 seconds 
 	try
 	{
-	mainTransform_ = tfBuffer_.lookupTransform("base_footprint","map",ros::Time(0));
+	mainTransform_ = tfBuffer_.lookupTransform("base_footprint","map",ros::Time(5));
 	}
 	catch (tf2::TransformException &ex)
 	{
 		ROS_WARN("%s",ex.what());
+		return 1;
 	}
 
-	// Define a collision object that will be added to planning scene
-	
-
 	std::vector<std::string> objIds = onto_.individuals.getOn(SUPPORT_SURFACE,"isUnder");
-	
+
+	// Add support surface to also add the table to the world
 	objIds.push_back(SUPPORT_SURFACE);
 
-	pr2_mtc::getPose srv;
+	// Ask underworld about poses of these ids
+	pr2_motion_tasks_msgs::GetPose srv;
 	srv.request.ids = objIds;
 	if (udwClient.call(srv))
 	{
@@ -472,19 +544,17 @@ void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 			// Fill in mesh URI (ask ontology or get it from the cache)
 			//Verify if frame_id isn't empty
-			// UWDS publish with frame_id as /map so transform to base_footprint 
+			// UWDS publish with frame_id as /map so transform to base_footprint
 			if(!srv.response.poses[i].header.frame_id.empty())
 			{
 				// Only ask if new object
 				if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
 				{
-					ROS_INFO("ALREADY KNOWN OBJECT, GET IT FROM MAP");
 					// Mesh URI is already known so get it from the map
 					m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
-				} 
-				else 
+				}
+				else
 				{
-					ROS_INFO("UNKNOWN OBJECT CALL ONTOLOGENIUS");
 					// Mesh URI is not known so ask ontologenius for it
 					meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
 					if(meshTemp.size() > 0)
@@ -497,16 +567,19 @@ void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							// If found then erase it from string
 							meshURI.erase(pos, std::string("string#").length());
 						}
-						ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
-						ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+						
+						//ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
+						//ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+						
 						m = shapes::createMeshFromResource(meshURI);
 
-						// And add it to the map 
+						// And add it to the map
 						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
 					}
 					else
 					{
 						ROS_ERROR_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
+						return 2;
 					}
 				}
 
@@ -516,29 +589,32 @@ void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				// Add the mesh to the Collision object message
 				collisionObj.meshes.push_back(mesh);
 
-	     		// Set object id 
+	     		// Set object id
 				collisionObj.id = objIds[i];
 
-				// Transform pose given by UWDS from map to basefootprint	
+				// Transform pose given by UWDS from map to basefootprint
 				colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
 				tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
 
 				// Set frame_id to "base_footprint" as it has been transformed
 				collisionObj.header.frame_id = "base_footprint";
-				collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
-				collisionObj.operation = collisionObj.ADD;
+				//collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+                collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+
+               collisionObj.operation = collisionObj.ADD;
 
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
 			}
 		}
-		
+
 	}
 	else
 	{
-	ROS_ERROR("Failed to call service getPose");
+		ROS_ERROR("Failed to call service getPose");
+		return 3;
 	}
-
+	return 0;
 }
 
 /*void feedback()
@@ -547,35 +623,66 @@ void motionPlanning::updateWorld(ros::ServiceClient& udwClient)
   ros::Rate loop_rate(1);
   while (ros::ok())
   {
-   
+
     loop_rate.sleep();
   }
 }*/
 
+ /**
+ * \fn void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solution, int& cost)
+ * \brief Callback that is used to ask Moveit Task Constructor about the cost of the choosen solution (least cost for now)
+ *
+ * \param solution Solutions lists found during the last planning
+ * \param cost Cost that will be sent back to supervisor 
+ */
 void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solution, int& cost)
 {
-	for(int i=0; i < solution->sub_solution.size(); i++)
+	/*for(int i=0; i < solution->sub_solution.size(); i++)
 	{
 		 ROS_ERROR_STREAM("COST RECEIVED[" << i << "] : " << solution->sub_solution[i].info.cost);
-	}
-  cost = solution->sub_solution[0].info.cost;
+	}*/
+	cost = solution->sub_solution[0].info.cost;
 }
 
-void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::planAction>* planServer, ros::ServiceClient& udwClient)
+ /**
+ * \fn void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
+ * \brief Callback that is called when supervisor ask for a plan
+ *
+ * \param goal Goal sent by supervisor. Contains action to be planned (pick, place, move), planGroup to be used if moving, object if pick, box if place
+ * \param planServer Action server handle to be able to send feeback or result to supervisor 
+ * \param udwClient Service handle to pass on to the update world function
+ */
+void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
 {
-	// First update the world
-	updateWorld(udwClient);
 
-	pr2_mtc::planFeedback planFeedback;
-  	pr2_mtc::planResult planResult;
+	pr2_motion_tasks_msgs::planFeedback planFeedback;
+ 	pr2_motion_tasks_msgs::planResult planResult;
 
-    std::string armGroup;
+    int updateWorldResult = 0;
 
-  
+	std::string armGroup;
+
+	updateWorldResult = updateWorld(udwClient);
+
+	if(updateWorldResult == 1)
+	{
+		planResult.error_code = -4;
+		planServer->setAborted(planResult);
+	}
+	else if(updateWorldResult == 2)
+	{
+		planResult.error_code = -5;
+		planServer->setAborted(planResult);
+	}
+	else if(updateWorldResult == 3)
+	{
+		planResult.error_code = -6;
+		planServer->setAborted(planResult);
+	}
 
 	//====== PICK ======//
 	if(goal->action == "pick")
-	{ 
+	{
 		if(goal->planGroup.empty())
 		{
 			std::vector<std::string> objIds;
@@ -603,9 +710,9 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 
 		std::string taskName = goal->action + "_" + goal->objId;
 
-		// Create Task 
+		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
-
+		
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, pickPose);
 	}
 	//====== PLACE ======//
@@ -615,7 +722,7 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 		geometry_msgs::PoseStamped placePose;
 		placePose.header.frame_id = goal->boxId;
 		placePose.pose.position.x = 0.0;
-		placePose.pose.position.y = -0.03;
+		placePose.pose.position.y = -0.02;
 		placePose.pose.position.z = 0.0;
 		placePose.pose.orientation.x = 0.0;  	// TBC
 		placePose.pose.orientation.y = 0.0; 	// TBC
@@ -624,7 +731,7 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 
 		std::string taskName = goal->action + "_in_" + goal->boxId;
 
-		// Create Task 
+		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 
 		createPlaceTask(*lastPlannedTask_, goal->planGroup, goal->objId, placePose);
@@ -633,7 +740,7 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 	else if (goal->action == "move")
 	{
 		std::string taskName = goal->action + "_" + goal->planGroup;
-		// Create Task 
+		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 
 		createMoveTask(*lastPlannedTask_, goal->planGroup,goal->pose);
@@ -643,15 +750,13 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 	{
 		if(lastPlannedTask_->plan(2))
 		{
-			moveit::planning_interface::MoveItErrorCode result(1);
-			planResult.error_code = result;
-			planResult.cost = lastPlannedTask_->solutions().front()->cost();	
+			planResult.error_code = 1;
+			planResult.cost = lastPlannedTask_->solutions().front()->cost();
 			planServer->setSucceeded(planResult);
 		}
 		else
 		{
-			moveit::planning_interface::MoveItErrorCode result(-1);
-			planResult.error_code = result;
+			planResult.error_code = -1;
 			planServer->setAborted(planResult);
 		}
 	}
@@ -662,10 +767,18 @@ void motionPlanning::planCallback(const pr2_mtc::planGoalConstPtr& goal,  action
 
 }
 
-void motionPlanning::executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_mtc::executeAction>* executeServer)
+
+ /**
+ * \fn void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer)
+ * \brief Callback that is called when supervisor ask to execute last planned task
+ *
+ * \param goal Goal sent by supervisor. Void
+ * \param executeServer Action server handle to be able to send feeback or result to supervisor 
+ */
+void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer)
 {
-	pr2_mtc::executeFeedback executeFeedback;
-  	pr2_mtc::executeResult executeResult;
+	pr2_motion_tasks_msgs::executeFeedback executeFeedback;
+  	pr2_motion_tasks_msgs::executeResult executeResult;
 
 	moveit_task_constructor_msgs::ExecuteTaskSolutionGoal execute_goal;
 
@@ -674,7 +787,7 @@ void motionPlanning::executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  
 
 	// Verify that task had solutions
 	if(lastPlannedTask_->solutions().size() > 0)
-	{		
+	{
 		ROS_INFO("Executing solution trajectory");
 
 		// Fill the solution message
@@ -687,21 +800,22 @@ void motionPlanning::executeCallback(const pr2_mtc::executeGoalConstPtr& goal,  
 
 		moveit_msgs::MoveItErrorCodes execute_result = executeTask.getResult()->error_code;
 
-		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS) 
+		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS)
 		{
 			ROS_ERROR_STREAM("Task execution failed and returned: " << executeTask.getState().toString());
-			moveit::planning_interface::MoveItErrorCode result(99999);
-			executeResult.error_code = result;
+	
+			executeResult.error_code = -2;
 			executeServer->setAborted(executeResult);
 		}
-		moveit::planning_interface::MoveItErrorCode result(1);
-		executeResult.error_code = result;
-		executeServer->setAborted(executeResult);
+		else
+		{
+			executeResult.error_code = 1;
+			executeServer->setSucceeded(executeResult);
+		}
 	}
 	else
 	{
-		moveit::planning_interface::MoveItErrorCode result(-2);
-		executeResult.error_code = result;
+		executeResult.error_code = -3;
 		executeServer->setAborted(executeResult);
 	}
 }
@@ -712,21 +826,21 @@ int main(int argc, char** argv)
 	ros::init(argc, argv, "pr2_tasks_node");
 	ros::AsyncSpinner spinner(1);
 	spinner.start();
- 
+
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz+
 
 	motionPlanning pr2Motion;
-	
-	// Service to get object pose from underworld
-	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_mtc::getPose>("/underworldServer/getPose");
-	ros::service::waitForService("/underworldServer/getPose", -1);
 
-	// Action servers for supervisor 
-  	actionlib::SimpleActionServer<pr2_mtc::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
+	// Service to get object pose from underworld
+	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/ar_perception_node/GetPose");
+	ros::service::waitForService("/ar_perception_node/GetPose", -1);
+
+	// Action servers for supervisor
+  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
 	planServer.start();
-	
-  	actionlib::SimpleActionServer<pr2_mtc::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer), false);
+
+  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer), false);
 	executeServer.start();
 
 	ROS_ERROR("STARTED ACTION SERVS");
