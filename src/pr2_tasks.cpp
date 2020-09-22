@@ -833,8 +833,8 @@ int main(int argc, char** argv)
 	motionPlanning pr2Motion;
 
 	// Service to get object pose from underworld
-	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/ar_perception_node/getPose");
-	ros::service::waitForService("/ar_perception_node/getPose", -1);
+	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/ar_perception/getPose");
+	ros::service::waitForService("/ar_perception/getPose", -1);
 
 	// Action servers for supervisor
   actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
