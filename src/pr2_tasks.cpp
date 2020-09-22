@@ -19,7 +19,7 @@ motionPlanning::motionPlanning()
 {
 	// Close ontology
 	onto_.close();
-	
+
 	// Set to verbose when debugging
 	//onto_.verbose(true);
 
@@ -99,7 +99,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		placeTask.add(std::move(connect));
 	}
 
-	// Temporary set an approach stage to avoid solutions with collisions 
+	// Temporary set an approach stage to avoid solutions with collisions
   	{
 		geometry_msgs::PoseStamped approachPlace;
 		approachPlace = placePose;
@@ -170,7 +170,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
  *
  * \param moveTask Task to fill
  * \param planGroup Moveit planning group (ie. arm doing the place)
- * \param moveToPose Pose where to place the frame (r_gripper_tool_frame or l_gripper_tool_frame depending on planGroup) 
+ * \param moveToPose Pose where to place the frame (r_gripper_tool_frame or l_gripper_tool_frame depending on planGroup)
  */
 void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,const geometry_msgs::PoseStamped moveToPose)
 {
@@ -225,8 +225,8 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
  *
  * \param pickTask Task to fill
  * \param planGroup Moveit planning group (ie. arm doing the place)
- * \param object Object to pick 
- * \param graspPose Grasp pose to be used when picking the object 
+ * \param object Object to pick
+ * \param graspPose Grasp pose to be used when picking the object
  */
 void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, const geometry_msgs::PoseStamped graspPose)
 {
@@ -390,7 +390,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
  *
  * \param pickTask Task to fill
  * \param planGroup Moveit planning group (ie. arm doing the place)
- * \param object Object to pick 
+ * \param object Object to pick
  */
 void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,const std::string object)
 {
@@ -494,10 +494,10 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
  * \brief Function to ask ontologenius about object id/meshes that are on the table then ask underworld their positions, and add them to planning scene
  *
  * \param udwClient Handle on the underworld service to get poses of the object in the scene.
- * 
- * \return 0 if everything went fine, 
+ *
+ * \return 0 if everything went fine,
  * 		   1 if failed to get transform between map and base_footprint
- * 		   2 if failed to get meshes from ontologenius 
+ * 		   2 if failed to get meshes from ontologenius
  * 		   3 if failed to get Ids from Underworld service
  */
 int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
@@ -515,7 +515,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 
 	// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
-	// Will wait for 5 seconds 
+	// Will wait for 5 seconds
 	try
 	{
 	mainTransform_ = tfBuffer_.lookupTransform("base_footprint","map",ros::Time(5));
@@ -567,10 +567,10 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							// If found then erase it from string
 							meshURI.erase(pos, std::string("string#").length());
 						}
-						
+
 						//ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
 						//ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
-						
+
 						m = shapes::createMeshFromResource(meshURI);
 
 						// And add it to the map
@@ -633,7 +633,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
  * \brief Callback that is used to ask Moveit Task Constructor about the cost of the choosen solution (least cost for now)
  *
  * \param solution Solutions lists found during the last planning
- * \param cost Cost that will be sent back to supervisor 
+ * \param cost Cost that will be sent back to supervisor
  */
 void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solution, int& cost)
 {
@@ -649,7 +649,7 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
  * \brief Callback that is called when supervisor ask for a plan
  *
  * \param goal Goal sent by supervisor. Contains action to be planned (pick, place, move), planGroup to be used if moving, object if pick, box if place
- * \param planServer Action server handle to be able to send feeback or result to supervisor 
+ * \param planServer Action server handle to be able to send feeback or result to supervisor
  * \param udwClient Service handle to pass on to the update world function
  */
 void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
@@ -712,7 +712,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		
+
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, pickPose);
 	}
 	//====== PLACE ======//
@@ -773,7 +773,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
  * \brief Callback that is called when supervisor ask to execute last planned task
  *
  * \param goal Goal sent by supervisor. Void
- * \param executeServer Action server handle to be able to send feeback or result to supervisor 
+ * \param executeServer Action server handle to be able to send feeback or result to supervisor
  */
 void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer)
 {
@@ -803,7 +803,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS)
 		{
 			ROS_ERROR_STREAM("Task execution failed and returned: " << executeTask.getState().toString());
-	
+
 			executeResult.error_code = -2;
 			executeServer->setAborted(executeResult);
 		}
@@ -833,7 +833,7 @@ int main(int argc, char** argv)
 	motionPlanning pr2Motion;
 
 	// Service to get object pose from underworld
-	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/ar_perception_node/GetPose");
+	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/ar_perception_node/getPose");
 	ros::service::waitForService("/ar_perception_node/GetPose", -1);
 
 	// Action servers for supervisor
