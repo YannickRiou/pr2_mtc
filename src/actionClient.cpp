@@ -26,6 +26,7 @@ int main(int argc, char **argv)
 
   ROS_INFO("Sending pick goal !");
   pr2_motion_tasks_msgs::planGoal planGoal;
+  planGoal.planGroup = "right_arm";
   planGoal.objId = "cube_GBTG_2";
   planGoal.action = "pick";
   plan.sendGoal(planGoal);
@@ -44,7 +45,7 @@ int main(int argc, char **argv)
     ROS_INFO_STREAM("Execution finished with status : " << execute.getResult()->error_code);
 
     planGoal.planGroup = "right_arm";
-    planGoal.boxId = "box_C5";
+    planGoal.boxId = "box_B5";
     planGoal.action = "place";
     plan.sendGoal(planGoal);
 
