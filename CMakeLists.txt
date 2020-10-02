@@ -10,10 +10,12 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   moveit_ros_planning_interface
   moveit_task_constructor_core
+  moveit_msgs
   roscpp
   rospy
   rviz_marker_tools
-  std_msgs
+  ontologenius
+  pr2_motion_tasks_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -56,25 +58,7 @@ find_package(catkin REQUIRED COMPONENTS
 #   Message2.msg
 # )
 
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
 
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -106,7 +90,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES pr2_mtc
 #  CATKIN_DEPENDS eigen_conversions moveit_ros_planning_interface moveit_task_constructor_core roscpp rospy rviz_marker_tools std_msgs
 #  DEPENDS system_lib
@@ -121,17 +105,27 @@ catkin_package(
 include_directories(
 # include
   include
-  ${catkin_INCLUDE_DIRS} 
-  pr2perception
+  ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(pr2_tasks src/pr2_tasks.cpp src/pr2perception/pr2perception.cpp)
-add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
-target_link_libraries(pr2_tasks ${catkin_LIBRARIES})
+add_executable(pr2_tasks src/pr2_tasks.cpp)
+target_link_libraries(pr2_tasks ${catkin_LIBRARIES} ${ontologenius_LIBRARIES})
+add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(actionClient src/actionClient.cpp)
+target_link_libraries(actionClient ${catkin_LIBRARIES})
+add_dependencies(actionClient ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(underworldServer_simu src/underworldServer_simu.cpp)
+target_link_libraries(underworldServer_simu ${catkin_LIBRARIES})
+add_dependencies(underworldServer_simu ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(underworldServer src/underworldServer.cpp)
+target_link_libraries(underworldServer ${catkin_LIBRARIES})
+add_dependencies(underworldServer ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
-add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp )
+add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(pr2_gripper_event ${catkin_LIBRARIES})
 
 ## Declare a C++ library

@@ -1,14 +1,25 @@
 <launch>
 
+<arg name="fake_execution" value="false"/>
+
 <include file="$(find pr2_moveit_config)/launch/pr2_moveit.launch">
-  <arg name="fake" value="false"/>
+  <arg name="fake" value="$(arg fake_execution)"/>
 </include>
 
-<node name="pr2_tasks" pkg="pr2_mtc" type="pr2_tasks" respawn="false" output="screen">
-<param name="left" type="string" value="obj_206" />
-<param name="right" type="string" value="" />
-<param name="planner" type="string" value="TRRT" />
-</node>
+<group if="$(arg fake_execution)">
+  <!-- We do not have a robot connected, so publish fake joint states -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <param name="use_gui" value="false"/>
+    <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+  </node>
+
+  <!-- Given the published joint states, publish tf for the robot links -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
+</group>
+
+<node name="underworldServer" pkg="pr2_mtc" type="underworldServer" respawn="false" output="screen"/>
+
+<node name="pr2_tasks_node" pkg="pr2_mtc" type="pr2_tasks" respawn="false" output="screen"/>
 
 <node name="pr2_gripper_event" pkg="pr2_mtc" type="pr2_gripper_event" respawn="true" />
 
