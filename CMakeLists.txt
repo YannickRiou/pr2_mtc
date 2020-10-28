@@ -116,14 +116,6 @@ add_executable(actionClient src/actionClient.cpp)
 target_link_libraries(actionClient ${catkin_LIBRARIES})
 add_dependencies(actionClient ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(underworldServer_simu src/underworldServer_simu.cpp)
-target_link_libraries(underworldServer_simu ${catkin_LIBRARIES})
-add_dependencies(underworldServer_simu ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_executable(underworldServer src/underworldServer.cpp)
-target_link_libraries(underworldServer ${catkin_LIBRARIES})
-add_dependencies(underworldServer ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
 add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(pr2_gripper_event ${catkin_LIBRARIES})
