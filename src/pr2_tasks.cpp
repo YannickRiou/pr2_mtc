@@ -322,26 +322,26 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		ikFrame_ = "l_gripper_tool_frame";
 		eef_ = "left_gripper";
 		homePoseId = "left_arm_home";
-		dropPose.header.frame_id = "throw_box_left";	
+		dropPose.header.frame_id = "throw_box_left";
 
-		ungrasp = "left_open";	
+		ungrasp = "left_open";
 	}
 	else if(planGroup == "right_arm")
 	{
 		ikFrame_ = "r_gripper_tool_frame";
 		eef_ = "right_gripper";
 		homePoseId = "right_arm_home";
-		dropPose.header.frame_id = "throw_box_right";	
-		ungrasp = "right_open";	
+		dropPose.header.frame_id = "throw_box_right";
+		ungrasp = "right_open";
 	}
 
 	dropPose.pose.position.x = 0.0;
 	dropPose.pose.position.y = 0.0;
-	dropPose.pose.position.z = 0.7;      
-	dropPose.pose.orientation.x = 0.0;   
-	dropPose.pose.orientation.y = 0.707;   
-	dropPose.pose.orientation.z = 0.0;  
-	dropPose.pose.orientation.w = 0.707; 
+	dropPose.pose.position.z = 0.7;
+	dropPose.pose.orientation.x = 0.0;
+	dropPose.pose.orientation.y = 0.707;
+	dropPose.pose.orientation.z = 0.0;
+	dropPose.pose.orientation.w = 0.707;
 
 	// Increase precision for drop to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
@@ -433,7 +433,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	c.absolute_y_axis_tolerance= 0.3925;
 	c.absolute_z_axis_tolerance= 0.785;
 	c.weight= 1.0;
-	
+
 	pickTask.setProperty("object",object);
 
 	if(planGroup == "left_arm")
@@ -494,7 +494,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 
 		pickTask.properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
-		
+
 		// TODO TEST WITH THIS
 		grasp->setProperty("eef",eef_);
 
@@ -817,17 +817,17 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 				// Set frame_id to "base_footprint" as it has been transformed
 				collisionObj.header.frame_id = "base_footprint";
-			
+
         		collisionObj.operation = collisionObj.ADD;
 
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
 
 
-			
+
 	 		}
 	 	}
-		
+
 		// Add the two box where to throw objects (not seen by perception)
 		throwBox_left.id = "throw_box_left";
 		throwBox_left.header.frame_id = "base_footprint";
@@ -867,7 +867,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		throw_box_pose.pose.orientation.z = 0.0;
 		throw_box_pose.pose.orientation.w = 1.0;
 		throwBox_right.mesh_poses.push_back(throw_box_pose.pose);
-		planning_scene_interface_.applyCollisionObject(throwBox_right);	
+		planning_scene_interface_.applyCollisionObject(throwBox_right);
 	}
 	else
 	{
@@ -920,14 +920,14 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	std::vector<geometry_msgs::PoseStamped> customPoses;
     geometry_msgs::PoseStamped customPose;
-    
+
 	int updateWorldResult = 0;
 
 	std::string armGroup;
 
 	if((goal->action == "pick"))
 	{
-		updateWorldResult = updateWorld(udwClient);
+		//updateWorldResult = updateWorld(udwClient);
 		if(updateWorldResult == 1)
 		{
 			planResult.error_code = -4;
@@ -972,22 +972,22 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->objId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;      
-		customPose.pose.orientation.x = 0.0;   
-		customPose.pose.orientation.y = 0.0;   
-		customPose.pose.orientation.z = 0.0;  
-		customPose.pose.orientation.w = 1.0; 
+		customPose.pose.position.z = 0.0;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 0.0;
+		customPose.pose.orientation.w = 1.0;
 		customPoses.push_back(customPose);
 
 
 		customPose.header.frame_id = goal->objId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;      
-		customPose.pose.orientation.x = 0.0;   
-		customPose.pose.orientation.y = 0.0;   
-		customPose.pose.orientation.z = 1.0;  
-		customPose.pose.orientation.w = 0.0; 
+		customPose.pose.position.z = 0.0;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 1.0;
+		customPose.pose.orientation.w = 0.0;
 		customPoses.push_back(customPose);
 
 		std::string taskName = goal->action + "-" + goal->objId;
@@ -1002,22 +1002,22 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;      
-		customPose.pose.orientation.x = 0.0;   
-		customPose.pose.orientation.y = 0.0;   
-		customPose.pose.orientation.z = 0.0;  
-		customPose.pose.orientation.w = 1.0; 
+		customPose.pose.position.z = 0.03;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 0.0;
+		customPose.pose.orientation.w = 1.0;
 		customPoses.push_back(customPose);
 
-		
+
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;      
-		customPose.pose.orientation.x = 0.0;   
-		customPose.pose.orientation.y = 0.0;   
-		customPose.pose.orientation.z = 1.0;  
-		customPose.pose.orientation.w = 0.0; 
+		customPose.pose.position.z = 0.03;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 1.0;
+		customPose.pose.orientation.w = 0.0;
 		customPoses.push_back(customPose);
 
 
@@ -1062,7 +1062,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	try
 	{
 		if(lastPlannedTask_->plan(5))
-		{ 
+		{
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
 			planServer->setSucceeded(planResult);
@@ -1153,18 +1153,18 @@ int main(int argc, char** argv)
 
 	// Service to get object pose from underworld
 	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
-	ros::service::waitForService("/tag_service/getPose", -1);
+	//ros::service::waitForService("/tag_service/getPose", -1);
 
-    ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::StringStamped>("pr2_facts", 1000);
+  ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::StringStamped>("pr2_facts", 1000);
 
 	// Action servers for supervisor
-    actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
+  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
 	planServer.start();
 
-    actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer, facts_pub), false);
+  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer, facts_pub), false);
 	executeServer.start();
-	
-	pr2Motion.updateWorld(getPoseSrv);
+
+	//pr2Motion.updateWorld(getPoseSrv);
 
 
 	ROS_ERROR("STARTED ACTION SERVS");
