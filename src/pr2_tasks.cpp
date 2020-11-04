@@ -1110,6 +1110,29 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 }
 
+void feedbackCb(const moveit_task_constructor_msgs::ExecuteTaskSolutionFeedbackConstPtr& feedback)
+{
+  ROS_ERROR_STREAM("Got Feedback ID  " <<  feedback->sub_id);
+  ROS_ERROR_STREAM("Got Feedback Number  " <<  feedback->sub_no);
+}
+
+// Called once when the goal completes
+void doneCb(const actionlib::SimpleClientGoalState& state,
+            const moveit_task_constructor_msgs::ExecuteTaskSolutionResultConstPtr& result, bool& doneFlag)
+{
+  ROS_ERROR_STREAM("Finished in state [%s]" << state.toString().c_str());
+  ROS_ERROR_STREAM("RESULT: " << result->error_code);
+
+  doneFlag = true;
+}
+
+// Called once when the goal becomes active
+void activeCb()
+{
+  ROS_ERROR_STREAM("Goal just went active");
+}
+
+
 
  /**
  * \fn void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer)
@@ -1123,6 +1146,8 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	pr2_motion_tasks_msgs::executeFeedback executeFeedback;
   	pr2_motion_tasks_msgs::executeResult executeResult;
 
+	bool doneFlag = false;
+
 	moveit_task_constructor_msgs::ExecuteTaskSolutionGoal execute_goal;
 
 	actionlib::SimpleActionClient<moveit_task_constructor_msgs::ExecuteTaskSolutionAction> executeTask("execute_task_solution", true);
@@ -1132,15 +1157,31 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	if(lastPlannedTask_->solutions().size() > 0)
 	{
     // TODO Check that this works
-		ROS_INFO_STREAM("Executing solution trajectory of" << lastPlannedTask_->id());
+		ROS_INFO_STREAM("Executing solution trajectory of " << lastPlannedTask_->id());
 
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
-		executeTask.sendGoal(execute_goal);
+		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
 
 		// TODO maybe add a timeout to avoid blocking
-		executeTask.waitForResult();
+		//executeTask.waitForResult();
+
+		ros::Rate loop_rate(2);
+		while(!doneFlag)
+		{
+			ROS_ERROR_STREAM("WAITING FOR RESULT !");
+
+			if(executeServer->isPreemptRequested())
+			{
+				ROS_ERROR_STREAM("PREEMPT REQUESTED!!!!!");
+				executeTask.cancelGoal();
+			}
+
+			loop_rate.sleep();
+		}
+
+		ROS_ERROR_STREAM("RESULT IS HERE !");
 
 		moveit_msgs::MoveItErrorCodes execute_result = executeTask.getResult()->error_code;
 
@@ -1149,7 +1190,16 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 			ROS_ERROR_STREAM("Task execution failed and returned: " << executeTask.getState().toString());
 
 			executeResult.error_code = -2;
-			executeServer->setAborted(executeResult);
+
+			if(executeServer->isPreemptRequested())
+			{
+				executeServer->setPreempted(executeResult);
+			}
+			else
+			{
+				executeServer->setAborted(executeResult);
+			}
+			
 		}
 		else
 		{
