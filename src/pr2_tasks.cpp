@@ -877,16 +877,34 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	return 0;
 }
 
-/*void feedback()
+void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat, int& progress)
 {
+	progress = (taskStat->stages[0].solved.size()/10.0)*100;
+}
 
-  ros::Rate loop_rate(1);
-  while (ros::ok())
-  {
 
-    loop_rate.sleep();
-  }
-}*/
+void motionPlanning::planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer)
+{
+	pr2_motion_tasks_msgs::planFeedback planFeedback;
+	int progressValue=0;
+
+	std::string statTopic = "/pr2_tasks_node/" + task_id + "/statistics";
+	
+	ros::Subscriber sub = nh_.subscribe<moveit_task_constructor_msgs::TaskStatistics>(statTopic, 10, boost::bind(taskStatisticCallback,_1,boost::ref(progressValue)));
+
+	ros::Rate loop_rate(2);
+	while (planServer->isActive())
+	{
+		if(planServer->isPreemptRequested())
+		{
+			lastPlannedTask_->preempt();
+			return;
+		}
+		planFeedback.status = progressValue;
+		planServer->publishFeedback(planFeedback);
+		loop_rate.sleep();
+	}
+}
 
  /**
  * \fn void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solution, int& cost)
@@ -914,8 +932,6 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
  */
 void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
 {
-
-	pr2_motion_tasks_msgs::planFeedback planFeedback;
  	pr2_motion_tasks_msgs::planResult planResult;
 
 	std::vector<geometry_msgs::PoseStamped> customPoses;
@@ -924,6 +940,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	int updateWorldResult = 0;
 
 	std::string armGroup;
+	std::string taskName;
 
 	if((goal->action == "pick"))
 	{
@@ -990,7 +1007,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.pose.orientation.w = 0.0;
 		customPoses.push_back(customPose);
 
-		std::string taskName = goal->action + "-" + goal->objId;
+		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
@@ -1021,7 +1038,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPoses.push_back(customPose);
 
 
-		std::string taskName = goal->action + "-" + goal->objId + "-in-" + goal->boxId;
+		taskName = goal->action + "_" + goal->objId + "_in_" + goal->boxId;
 
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
@@ -1031,7 +1048,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== MOVE ======//
 	else if (goal->action == "move")
 	{
-		std::string taskName = goal->action + "-" + goal->planGroup;
+		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 
@@ -1047,7 +1064,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== DROP ======//
 	else if (goal->action == "drop")
 	{
-		std::string taskName = goal->action + "-" + goal->planGroup;
+		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 
@@ -1059,9 +1076,12 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		return;
 	}
 
+	// Create Thread to handle the feedback process 
+	boost::thread feedbackThread(&motionPlanning::planFeedbackThread, this, taskName, planServer);
+
 	try
 	{
-		if(lastPlannedTask_->plan(5))
+		if(lastPlannedTask_->plan(10) && !planServer->isPreemptRequested())
 		{
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
@@ -1070,7 +1090,15 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		else
 		{
 			planResult.error_code = -1;
-			planServer->setAborted(planResult);
+			
+			if(planServer->isPreemptRequested())
+			{
+				planServer->setPreempted(planResult);
+			}
+			else
+			{
+				planServer->setAborted(planResult);
+			}
 		}
 	}
 	catch (const InitStageException& e)
@@ -1078,6 +1106,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
     // TODO Handle this state
 		ROS_ERROR_STREAM(e);
 	}
+	feedbackThread.join();
 
 }
 

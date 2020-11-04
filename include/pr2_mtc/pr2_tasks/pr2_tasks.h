@@ -99,6 +99,8 @@ class motionPlanning
 
         void createDropTask(Task &dropTask, const std::string planGroup,const std::string object);
 
+        void planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer);
+
         int updateWorld(ros::ServiceClient& udwClient);
 
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient);
