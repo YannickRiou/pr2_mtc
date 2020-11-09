@@ -1085,6 +1085,9 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		{
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
+			pr2_motion_tasks_msgs::planFeedback planFeedback;
+			planFeedback.status = 100;
+			planServer->publishFeedback(planFeedback);
 			planServer->setSucceeded(planResult);
 		}
 		else
@@ -1120,8 +1123,8 @@ void feedbackCb(const moveit_task_constructor_msgs::ExecuteTaskSolutionFeedbackC
 void doneCb(const actionlib::SimpleClientGoalState& state,
             const moveit_task_constructor_msgs::ExecuteTaskSolutionResultConstPtr& result, bool& doneFlag)
 {
-  ROS_ERROR_STREAM("Finished in state [%s]" << state.toString().c_str());
-  ROS_ERROR_STREAM("RESULT: " << result->error_code);
+  ROS_INFO_STREAM("Finished in state : " << state.toString().c_str());
+  ROS_INFO_STREAM("RESULT: " << result->error_code);
 
   doneFlag = true;
 }
@@ -1129,7 +1132,7 @@ void doneCb(const actionlib::SimpleClientGoalState& state,
 // Called once when the goal becomes active
 void activeCb()
 {
-  ROS_ERROR_STREAM("Goal just went active");
+  ROS_INFO("Goal just went active");
 }
 
 
@@ -1163,25 +1166,20 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
-
-		// TODO maybe add a timeout to avoid blocking
-		//executeTask.waitForResult();
-
-		ros::Rate loop_rate(2);
+		int dummyProgress = 0;
+		ros::Rate loop_rate(1);
 		while(!doneFlag)
 		{
-			ROS_ERROR_STREAM("WAITING FOR RESULT !");
-
+			executeFeedback.status = dummyProgress;
+			dummyProgress++;
+			executeServer->publishFeedback(executeFeedback);
 			if(executeServer->isPreemptRequested())
 			{
-				ROS_ERROR_STREAM("PREEMPT REQUESTED!!!!!");
 				executeTask.cancelGoal();
 			}
 
 			loop_rate.sleep();
 		}
-
-		ROS_ERROR_STREAM("RESULT IS HERE !");
 
 		moveit_msgs::MoveItErrorCodes execute_result = executeTask.getResult()->error_code;
 
