@@ -826,6 +826,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 
 	 		}
+			else
+			{
+				ROS_ERROR_STREAM("Error while updating the world, underworld service returned nothing...");
+				return 3;
+			}
 	 	}
 
 		// Add the two box where to throw objects (not seen by perception)
