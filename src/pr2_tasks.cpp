@@ -1024,7 +1024,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;
+		customPose.pose.position.z = 0.01;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 0.0;
@@ -1035,7 +1035,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;
+		customPose.pose.position.z = 0.01;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 1.0;
