@@ -54,6 +54,192 @@ void lookAt(std::string frame_id, double x, double y, double z)
   point_head_client->waitForResult(ros::Duration(2));
 }
 
+void scenario_replace_2(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>& planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
+{
+pr2_motion_tasks_msgs::planGoal planGoal;
+  pr2_motion_tasks_msgs::executeGoal executeGoal;
+
+  ROS_INFO("Waiting for action server to start.");
+  // wait for the action server to start
+  planClient.waitForServer(); //will wait for infinite time
+  executeClient.waitForServer(); //will wait for infinite time
+
+  lookAt("box_B5",0,0,0);
+
+  ROS_INFO("Sending pick goal !");
+
+  {
+    lookAt("cube_BBTG",0,0,0);
+    planGoal.planGroup = "left_arm";
+    planGoal.objId = "cube_BBTG";
+    planGoal.action = "pick";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+      return;
+    }
+  }
+  
+  if (executeClient.getResult()->error_code == 1)
+  {
+    planGoal.planGroup = "left_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "left_arm_home";
+
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+     else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.planGroup);
+      return;
+    }
+
+   lookAt("box_C5",0,0,0); 
+ 
+  if (executeClient.getResult()->error_code== 1)
+  {
+    lookAt("cube_BGCB",0,0,0);
+    planGoal.planGroup = "right_arm";
+    planGoal.objId = "cube_BGCB";
+    planGoal.action = "pick";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+        else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+      return;
+    }
+  
+  if (executeClient.getResult()->error_code== 1)
+  {
+    planGoal.planGroup = "right_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "right_arm_home";
+
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+      else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.planGroup);
+      return;
+    }
+  
+  if (executeClient.getResult()->error_code == 1)
+  {
+    lookAt("box_C5",0,0,0);
+    planGoal.planGroup = "left_arm";
+    planGoal.objId = "cube_BBTG";
+    planGoal.boxId = "box_C5";
+    planGoal.action = "place";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+ 
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+        else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+      return;
+    }
+  
+  if (executeClient.getResult()->error_code == 1)
+  {
+    planGoal.planGroup = "left_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "left_arm_home";
+
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.planGroup);
+      return;
+    }
+  
+  if (executeClient.getResult()->error_code == 1)
+  {
+    lookAt("box_B5",0,0,0);
+    planGoal.planGroup = "right_arm";
+    planGoal.objId = "cube_BGCB";
+    planGoal.boxId = "box_B5";
+    planGoal.action = "place";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+      return;
+    }
+ 
+  if (executeClient.getResult()->error_code == 1)
+  {
+    planGoal.planGroup = "right_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "right_arm_home";
+
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+    
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+    else
+    {
+      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.planGroup);
+      return;
+    }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+}
+
 void scenario_replace(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>& planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
 {
 pr2_motion_tasks_msgs::planGoal planGoal;
