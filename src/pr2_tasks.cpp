@@ -117,7 +117,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	ik.pose.orientation.w=  1;
 	placeTask.setProperty("ik_frame",ik);
 
-	pipelinePlanner_->setPlannerId("RRTConnect");
+	pipelinePlanner_->setPlannerId("TRRT");
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -281,7 +281,7 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
 	moveTask.setRobotModel(kinematic_model_);
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
-	pipelinePlanner_->setPlannerId("RRTConnect");
+	pipelinePlanner_->setPlannerId("TRRT");
 
 	//Start state
 	Stage* current_state = nullptr;
