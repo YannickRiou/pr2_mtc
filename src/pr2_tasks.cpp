@@ -117,7 +117,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	ik.pose.orientation.w=  1;
 	placeTask.setProperty("ik_frame",ik);
 
-	pipelinePlanner_->setPlannerId("RRTConnect");
+	pipelinePlanner_->setPlannerId("TRRT");
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -281,7 +281,7 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
 	moveTask.setRobotModel(kinematic_model_);
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
-	pipelinePlanner_->setPlannerId("RRTConnect");
+	pipelinePlanner_->setPlannerId("TRRT");
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -826,6 +826,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 
 	 		}
+			else
+			{
+				ROS_ERROR_STREAM("Error while updating the world, underworld service returned nothing...");
+				return 3;
+			}
 	 	}
 
 		// Add the two box where to throw objects (not seen by perception)
@@ -1019,7 +1024,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;
+		customPose.pose.position.z = 0.01;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 0.0;
@@ -1030,7 +1035,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.03;
+		customPose.pose.position.z = 0.01;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 1.0;
