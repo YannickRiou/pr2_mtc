@@ -722,7 +722,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		}
 	}
 
-	std::vector<std::string> objIds = onto_.individuals.getOn(SUPPORT_SURFACE,"isAbove");
+	std::vector<std::string> objIds = onto_.individuals.getOn(SUPPORT_SURFACE,"isBelow");
 
 	// Add support surface to also add the table to the world
 	objIds.push_back(SUPPORT_SURFACE);
