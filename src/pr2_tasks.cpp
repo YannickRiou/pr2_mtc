@@ -1090,6 +1090,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		{
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
+			planResult.armUsed = armGroup;
 			pr2_motion_tasks_msgs::planFeedback planFeedback;
 			planFeedback.status = 100;
 			planServer->publishFeedback(planFeedback);
