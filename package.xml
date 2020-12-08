@@ -57,6 +57,7 @@
   <build_depend>rospy</build_depend>
   <build_depend>rviz_marker_tools</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>dt_resources</build_depend>
   <build_export_depend>eigen_conversions</build_export_depend>
   <build_export_depend>moveit_ros_planning_interface</build_export_depend>
   <build_export_depend>moveit_task_constructor_core</build_export_depend>
@@ -65,6 +66,7 @@
   <build_export_depend>rviz_marker_tools</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
 
+  <exec_depend>dt_resources</exec_depend>
   <exec_depend>moveit_ros_move_group</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
   <exec_depend>eigen_conversions</exec_depend>
