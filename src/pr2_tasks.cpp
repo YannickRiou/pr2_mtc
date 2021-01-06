@@ -1014,6 +1014,11 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		taskName = goal->action + "_" + goal->objId;
 
+		factStampedMsg_.action = factStampedMsg_.PICK;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId.clear();
+		factStampedMsg_.arm = armGroup;
+
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, customPoses);
@@ -1045,6 +1050,11 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		taskName = goal->action + "_" + goal->objId + "_in_" + goal->boxId;
 
+		factStampedMsg_.action = factStampedMsg_.PLACE;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId = goal->boxId;
+		factStampedMsg_.arm = armGroup;
+
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 
@@ -1072,6 +1082,11 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
+
+		factStampedMsg_.action = factStampedMsg_.DROP;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId.clear();
+		factStampedMsg_.arm = armGroup;
 
 		createDropTask(*lastPlannedTask_, armGroup,goal->objId);
 	}
@@ -1209,10 +1224,8 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		{
 			executeResult.error_code = 1;
 			executeServer->setSucceeded(executeResult);
-			pr2_motion_tasks_msgs::StringStamped factStampedMsg;
-			factStampedMsg.stamp = ros::Time::now();
-			factStampedMsg.fact = lastPlannedTask_->id();
-			factsPublisher.publish(factStampedMsg);
+			factStampedMsg_.stamp = ros::Time::now();
+			factsPublisher.publish(factStampedMsg_);
 		}
 	}
 	else
@@ -1238,7 +1251,7 @@ int main(int argc, char** argv)
 	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
 	//ros::service::waitForService("/tag_service/getPose", -1);
 
-  ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::StringStamped>("pr2_facts", 1000);
+  ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::RobotAction>("pr2_facts", 1000);
 
 	// Action servers for supervisor
   actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);

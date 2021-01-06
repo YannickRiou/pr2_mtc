@@ -70,7 +70,7 @@
 #include <pr2_motion_tasks_msgs/GetPose.h>
 
 // Message to tell about facts
-#include <pr2_motion_tasks_msgs/StringStamped.h>
+#include <pr2_motion_tasks_msgs/RobotAction.h>
 
 // Action server for supervisor to call pick, place and move tasks
 #include <pr2_motion_tasks_msgs/planAction.h>
@@ -147,4 +147,7 @@ class motionPlanning
 
         // Variable to set the ikFrame used during task
 	    std::string ikFrame_;
+
+ 		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
+
 };
