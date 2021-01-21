@@ -117,7 +117,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	ik.pose.orientation.w=  1;
 	placeTask.setProperty("ik_frame",ik);
 
-	pipelinePlanner_->setPlannerId("TRRT");
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -174,7 +174,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("place object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.12, 0.15);
+			stage->setMinMaxDistance(0.02, 0.20);
 			stage->setIKFrame(ikFrame_);
 
 			geometry_msgs::Vector3Stamped vec;
@@ -281,7 +281,7 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
 	moveTask.setRobotModel(kinematic_model_);
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
-	pipelinePlanner_->setPlannerId("TRRT");
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -346,7 +346,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 	// Increase precision for drop to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
-	pipelinePlanner_->setPlannerId("TRRT");
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 
 	//Start state
@@ -460,7 +460,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	}
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
-	pipelinePlanner_->setPlannerId("TRRT");
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 	//Start state
 	Stage* current_state = nullptr;
@@ -837,7 +837,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		throwBox_left.id = "throw_box_left";
 		throwBox_left.header.frame_id = "base_footprint";
 		throwBox_left.operation = throwBox_left.ADD;
-		m = shapes::createMeshFromResource("package://exp_director_task/mesh/throw_box.dae");
+		m = shapes::createMeshFromResource("package://dt_resources/mesh/throw_box.dae");
 		shapes::constructMsgFromShape(m, mesh_msg);
 		mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
 		// Add the mesh to the Collision object message
@@ -858,7 +858,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		throwBox_right.id = "throw_box_right";
 		throwBox_right.header.frame_id = "base_footprint";
 		throwBox_right.operation = throwBox_right.ADD;
-		m = shapes::createMeshFromResource("package://exp_director_task/mesh/throw_box.dae");
+		m = shapes::createMeshFromResource("package://dt_resources/mesh/throw_box.dae");
 		shapes::constructMsgFromShape(m, mesh_msg);
 		mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
 		// Add the mesh to the Collision object message
@@ -1029,7 +1029,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.01;
+		customPose.pose.position.z = 0.0;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 0.0;
@@ -1040,7 +1040,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.01;
+		customPose.pose.position.z = 0.0;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 1.0;

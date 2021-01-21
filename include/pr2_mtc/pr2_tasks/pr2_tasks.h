@@ -79,6 +79,8 @@
 // Used to ask ontology to get all object on this support surface
 #define SUPPORT_SURFACE "table_1"
 
+#define PLANNER "TRRT"
+
 using namespace moveit::task_constructor;
 
 class motionPlanning
