@@ -828,8 +828,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	 		}
 			else
 			{
-				ROS_ERROR_STREAM("Error while updating the world, underworld service returned nothing...");
-				return 3;
+				ROS_WARNING_STREAM("Error while updating the world, frame_id is empty...");
 			}
 	 	}
 
