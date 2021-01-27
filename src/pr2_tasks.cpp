@@ -991,7 +991,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	if(goal->action == "pick")
 	{
 		customPose.header.frame_id = goal->objId;
-		customPose.pose.position.x = 0.00;
+		customPose.pose.position.x = -0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = 0.0;
 		customPose.pose.orientation.x = 0.0;
@@ -1002,7 +1002,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 
 		customPose.header.frame_id = goal->objId;
-		customPose.pose.position.x = 0.00;
+		customPose.pose.position.x = 0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = 0.0;
 		customPose.pose.orientation.x = 0.0;
