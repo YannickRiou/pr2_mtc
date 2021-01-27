@@ -745,11 +745,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 			{
 				// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
 				// Will wait for 1 seconds
-				if(srv.response.poses[i].header.frame_id != "/base_footprint")
+				if(srv.response.poses[i].header.frame_id != "/map")
 				{
 					try
 					{
-					mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[i].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
+					mainTransform_ = tfBuffer_.lookupTransform("map",srv.response.poses[i].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
 					}
 					catch (tf2::TransformException &ex)
 					{
