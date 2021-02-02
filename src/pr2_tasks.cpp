@@ -608,6 +608,8 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		ikFrame_ = "r_gripper_tool_frame";
 	}
 
+	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 	//Start state
 	Stage* current_state = nullptr;
