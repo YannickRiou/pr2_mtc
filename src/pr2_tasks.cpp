@@ -154,7 +154,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 			stage->setMonitoredStage(current_state);
 			current_state = stage.get();
 
-			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
+			auto wrapper = std::make_unique<stages::ComputeIK>("approch to pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
@@ -163,16 +163,18 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		}
 
 		{
-			auto stage = std::make_unique<stages::MoveRelative>("place object", cartesianPlanner_);
-			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.02, 0.20);
-			stage->setIKFrame(ikFrame_);
+			auto stage = std::make_unique<stages::GenerateCustomPose>("place the object");
+			stage->setCustomPoses(placePoses);
+			stage->properties().configureInitFrom(Stage::PARENT);
+			stage->setMonitoredStage(current_state);
+			current_state = stage.get();
 
-			geometry_msgs::Vector3Stamped vec;
-			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
-			stage->setDirection(vec);
-			place->insert(std::move(stage));
+			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
+			wrapper->setMaxIKSolutions(32);
+			wrapper->setIKFrame(ikFrame_);
+			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
+			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
+			place->insert(std::move(wrapper));
 		}
 
 		{
