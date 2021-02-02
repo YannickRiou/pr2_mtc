@@ -386,12 +386,6 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		dropTask.add(std::move(stage));
 	}
 
-	{
-		auto stage = std::make_unique<stages::MoveTo>("Go to home", pipelinePlanner_);
-		stage->setGroup(planGroup);
-		stage->setGoal(homePoseId);
-		dropTask.add(std::move(stage));
-	}
 }
 
  /**
