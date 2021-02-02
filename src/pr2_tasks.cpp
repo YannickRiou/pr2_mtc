@@ -943,7 +943,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::string armGroup;
 	std::string taskName;
 
-	if((goal->action == "pick"))
+	if((goal->action == "pick") || (goal->action == "pickAuto") || (goal->action == "updateWorld"))
 	{
 		//updateWorldResult = updateWorld(udwClient);
 		if(updateWorldResult == 1)
@@ -962,6 +962,12 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		{
 			planResult.error_code = -6;
 			planServer->setAborted(planResult);
+			return;
+		}
+		else if (goal->action == "updateWorld")
+		{
+			planResult.error_code = 1;
+			planServer->setSucceeded(planResult);
 			return;
 		}
 	}
