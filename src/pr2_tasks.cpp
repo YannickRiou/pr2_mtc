@@ -106,16 +106,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	// Increase precision for place to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
-	geometry_msgs::PoseStamped ik;
-	ik.header.frame_id= ikFrame_;
-	ik.pose.position.x=  0;
-	ik.pose.position.y=  0;
-	ik.pose.position.z=  0;
-	ik.pose.orientation.x=  0;
-	ik.pose.orientation.y=  0;
-	ik.pose.orientation.z=  0;
-	ik.pose.orientation.w=  1;
-	placeTask.setProperty("ik_frame",ik);
+	placeTask.setProperty("ik_frame",ikFrame_);
 
 	pipelinePlanner_->setPlannerId(PLANNER);
 
