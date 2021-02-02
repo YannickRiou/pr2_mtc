@@ -13,7 +13,7 @@
 
 // Class constructor
 motionPlanning::motionPlanning()
-  : onto_(&nh_),
+  : onto_(&nh_,"robot"),
 	robot_model_loader_("robot_description"),
 	transformListenner_(tfBuffer_)
 {
