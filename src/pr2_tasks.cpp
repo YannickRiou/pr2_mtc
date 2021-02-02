@@ -1011,6 +1011,19 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId, customPoses);
 	}
+	else if(goal->action == "pickAuto")
+	{
+		taskName = goal->action + "Auto_" + goal->objId;
+
+		factStampedMsg_.action = factStampedMsg_.PICK;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId.clear();
+		factStampedMsg_.arm = armGroup;
+
+		// Create Task
+		lastPlannedTask_ = std::make_shared<Task>(taskName);
+		createPickTask(*lastPlannedTask_,armGroup,goal->objId);
+	}
 	//====== PLACE ======//
 	else if(goal->action == "place")
 	{
