@@ -163,6 +163,14 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		}
 
 		{
+			// connect
+			stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
+			auto connect = std::make_unique<stages::Connect>("connect to place", planners);
+			connect->properties().configureInitFrom(Stage::PARENT);
+			place->insert(std::move(connect));
+		}
+
+		{
 			auto stage = std::make_unique<stages::GenerateCustomPose>("place the object");
 			stage->setCustomPoses(placePoses);
 			stage->properties().configureInitFrom(Stage::PARENT);
