@@ -644,21 +644,17 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		grasp_generator->setMonitoredStage(current_state);
 
 		auto grasp = std::make_unique<stages::SimpleGrasp>(std::move(grasp_generator));
-		Eigen::Isometry3d tr = Eigen::Isometry3d::Identity();
 		pickTask.properties().exposeTo(grasp->properties(), { "group","eef","object"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group","object"});
 		grasp->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
-		//tr.translation() = Eigen::Vector3d(0.0,0.0,0.00);
-		grasp->setIKFrame(tr, ikFrame_);
+	
+		grasp->setIKFrame(ikFrame_);
 		grasp->setMaxIKSolutions(10);
 
 		// pick container, using the generated grasp generator
 		auto pick = std::make_unique<stages::Pick>(std::move(grasp),"pick");
 		pickTask.properties().exposeTo(pick->properties(), { "group","eef","object" });
 		pick->properties().configureInitFrom(Stage::PARENT, { "eef", "group","object"});
-		//pick->setProperty("eef", "left_gripper");
-		//pick->setProperty("group","left_arm");
-		//pick->setProperty("object", "obj_0");
 		geometry_msgs::TwistStamped approach;
 		approach.header.frame_id = ikFrame_;
 		approach.twist.linear.x = 1.0;
@@ -672,6 +668,19 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		pick->setLiftMotion(lift, 0.05, 0.10);
 		current_state = pick.get();
 		pickTask.add(std::move(pick));
+	}
+
+	{
+		auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
+		stage->properties().configureInitFrom(Stage::PARENT, { "group" });
+		stage->setMinMaxDistance(0.15, 0.20);
+		stage->setIKFrame(ikFrame_);
+		// Set upward direction
+		geometry_msgs::Vector3Stamped vec;
+		vec.header.frame_id = "base_footprint";
+		vec.vector.x = -1.0;
+		stage->setDirection(vec);
+		pickTask.add(std::move(stage));
 	}
 }
 
