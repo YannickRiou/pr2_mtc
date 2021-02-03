@@ -663,8 +663,8 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		lift.twist.linear.x =  0.0;
 		lift.twist.linear.y =  0.0;
 		lift.twist.linear.z =  1.0;
-		pick->setLiftMotion(lift, 0.05, 0.10);
-		current_state = pick.get();
+		pick->setLiftMotion(lift, 0.01, 0.05);
+		
 		pickTask.add(std::move(pick));
 	}
 
