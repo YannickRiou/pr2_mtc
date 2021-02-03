@@ -153,7 +153,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 			current_state = stage.get();
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("approch to pose IK", std::move(stage) );
-			wrapper->setMaxIKSolutions(32);
+			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -176,7 +176,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 			current_state = stage.get();
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
-			wrapper->setMaxIKSolutions(32);
+			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -258,7 +258,7 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
 		stage->setMonitoredStage(current_state);
 
 		auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
-		wrapper->setMaxIKSolutions(32);
+		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
@@ -371,7 +371,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		stage->setMonitoredStage(current_state);
 
 		auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
-		wrapper->setMaxIKSolutions(32);
+		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
@@ -515,7 +515,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			stage->setMonitoredStage(current_state);
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
-			wrapper->setMaxIKSolutions(32);
+			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
