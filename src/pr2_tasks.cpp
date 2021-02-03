@@ -121,7 +121,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	{
 		// connect to place
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
-		auto connect = std::make_unique<stages::Connect>("connect", planners);
+		auto connect = std::make_unique<stages::Connect>("connect to place", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
@@ -140,12 +140,10 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 			geometry_msgs::PoseStamped approach;
 			approach = placePoses[0];
 			approach.pose.position.x = approach.pose.position.x-0.20;
-			approach.pose.position.z = approach.pose.position.z-0.035;
 			approachPlacePoses.push_back(approach);
 
 			approach = placePoses[1];
 			approach.pose.position.x = approach.pose.position.x+0.20;
-			approach.pose.position.z = approach.pose.position.z-0.035;
 			approachPlacePoses.push_back(approach);
 
 			auto stage = std::make_unique<stages::GenerateCustomPose>("approach to pose");
@@ -1053,7 +1051,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;
+		customPose.pose.position.z = -0.035;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 0.0;
@@ -1064,7 +1062,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = 0.00;
 		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;
+		customPose.pose.position.z = -0.035;
 		customPose.pose.orientation.x = 0.0;
 		customPose.pose.orientation.y = 0.0;
 		customPose.pose.orientation.z = 1.0;
