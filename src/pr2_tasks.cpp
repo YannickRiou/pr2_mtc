@@ -1209,6 +1209,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
+		executeFeedback.action_start = ros::Time::now();
 		int dummyProgress = 0;
 		ros::Rate loop_rate(1);
 		while(!doneFlag)
@@ -1245,6 +1246,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		else
 		{
 			executeResult.error_code = 1;
+			executeResult.action_end = ros::Time::now();
 			executeServer->setSucceeded(executeResult);
 			factStampedMsg_.stamp = ros::Time::now();
 			factsPublisher.publish(factStampedMsg_);
