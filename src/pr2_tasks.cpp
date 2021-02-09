@@ -1123,7 +1123,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	try
 	{
-		if(lastPlannedTask_->plan(10) && !planServer->isPreemptRequested())
+		if(lastPlannedTask_->plan(3) && !planServer->isPreemptRequested())
 		{
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
