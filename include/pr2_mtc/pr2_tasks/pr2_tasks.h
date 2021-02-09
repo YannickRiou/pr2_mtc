@@ -95,9 +95,9 @@ class motionPlanning
 
         void createMovePredefinedTask(Task &moveTask, const std::string planGroup,const std::string pose_id);
 
-        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, std::vector<geometry_msgs::PoseStamped> graspPoses);
+        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
 
-        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object);
+        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
 
         void createDropTask(Task &dropTask, const std::string planGroup,const std::string object);
 
