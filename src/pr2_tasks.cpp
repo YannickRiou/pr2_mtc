@@ -1159,7 +1159,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	else if(goal->action == "place")
 	{
 		customPose.header.frame_id = goal->boxId;
-		customPose.pose.position.x = 0.00;
+		customPose.pose.position.x = -0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = -0.035;
 		customPose.pose.orientation.x = 0.0;
@@ -1170,7 +1170,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 
 		customPose.header.frame_id = goal->boxId;
-		customPose.pose.position.x = 0.00;
+		customPose.pose.position.x = 0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = -0.035;
 		customPose.pose.orientation.x = 0.0;
