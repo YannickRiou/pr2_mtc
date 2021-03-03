@@ -70,7 +70,7 @@
 #include <pr2_motion_tasks_msgs/GetPose.h>
 
 // Message to tell about facts
-#include <pr2_motion_tasks_msgs/StringStamped.h>
+#include <pr2_motion_tasks_msgs/RobotAction.h>
 
 // Action server for supervisor to call pick, place and move tasks
 #include <pr2_motion_tasks_msgs/planAction.h>
@@ -78,6 +78,8 @@
 
 // Used to ask ontology to get all object on this support surface
 #define SUPPORT_SURFACE "table_1"
+
+#define PLANNER "TRRT"
 
 using namespace moveit::task_constructor;
 
@@ -93,11 +95,13 @@ class motionPlanning
 
         void createMovePredefinedTask(Task &moveTask, const std::string planGroup,const std::string pose_id);
 
-        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object, std::vector<geometry_msgs::PoseStamped> graspPoses);
+        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
 
-        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object);
+        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
 
         void createDropTask(Task &dropTask, const std::string planGroup,const std::string object);
+
+        void planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer);
 
         int updateWorld(ros::ServiceClient& udwClient);
 
@@ -145,4 +149,7 @@ class motionPlanning
 
         // Variable to set the ikFrame used during task
 	    std::string ikFrame_;
+
+ 		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
+
 };
