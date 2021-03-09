@@ -1043,7 +1043,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::vector<geometry_msgs::PoseStamped> customPoses;
     geometry_msgs::PoseStamped customPose;
 
-	std::vector<std::string> boxId;
+	std::vector<std::string> supportSurfaceId;
 
 	int updateWorldResult = 0;
 
@@ -1053,13 +1053,22 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	if((goal->action == "pick") || (goal->action == "pickAuto") || (goal->action == "updateWorld"))
 	{
 		// Ask the box in which the cube is 
-		boxId = onto_.individuals.getOn(goal->objId,"isIn");
-		if (boxId.size() == 0)
+		if (goal->action != "updateWorld")
 		{
-			planResult.error_code = -1;
-			ROS_ERROR_STREAM(goal->objId << " isn't in any box");
-			planServer->setAborted(planResult);
-			return;
+			// Verify if it's in a box (for director task only)
+			supportSurfaceId = onto_.individuals.getOn(goal->objId,"isIn");
+			if (supportSurfaceId.size() == 0)
+			{
+				// If not in a box, verify if it's on something like a table (general use case)
+				supportSurfaceId = onto_.individuals.getOn(goal->objId,"isOnTopOf");
+				if (supportSurfaceId.size() == 0)
+				{
+					planResult.error_code = -1;
+					ROS_ERROR_STREAM("[Anti-gravity generator enabled]" << goal->objId << " isn't in any box or on top of any surface.");
+					planServer->setAborted(planResult);
+					return;
+				}
+			}
 		}
 
 		updateWorldResult = updateWorld(udwClient);
@@ -1140,7 +1149,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId,boxId[0], customPoses);
+		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickAuto")
 	{
@@ -1153,7 +1162,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		createPickTask(*lastPlannedTask_,armGroup,goal->objId,boxId[0]);
+		createPickTask(*lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0]);
 	}
 	//====== PLACE ======//
 	else if(goal->action == "place")
@@ -1383,7 +1392,7 @@ int main(int argc, char** argv)
 
 	// Service to get object pose from underworld
 	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
-	//ros::service::waitForService("/tag_service/getPose", -1);
+	ros::service::waitForService("/tag_service/getPose", -1);
 
   ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::RobotAction>("pr2_facts", 1000);
 
@@ -1394,7 +1403,7 @@ int main(int argc, char** argv)
   actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer, facts_pub), false);
 	executeServer.start();
 
-	//pr2Motion.updateWorld(getPoseSrv);
+	pr2Motion.updateWorld(getPoseSrv);
 
 
 	ROS_ERROR("STARTED ACTION SERVS");
