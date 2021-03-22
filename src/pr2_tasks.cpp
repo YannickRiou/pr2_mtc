@@ -1352,26 +1352,33 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== PICK ======//
 	if(goal->action == "pick")
 	{
-		customPose.header.frame_id = goal->objId;
-		customPose.pose.position.x = -0.02;
-		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;
-		customPose.pose.orientation.x = 0.0;
-		customPose.pose.orientation.y = 0.0;
-		customPose.pose.orientation.z = 0.0;
-		customPose.pose.orientation.w = 1.0;
-		customPoses.push_back(customPose);
+		if(goal->pose.header.frame_id == "")
+		{
+			customPose.header.frame_id = goal->objId;
+			customPose.pose.position.x = -0.02;
+			customPose.pose.position.y = 0.0;
+			customPose.pose.position.z = 0.0;
+			customPose.pose.orientation.x = 0.0;
+			customPose.pose.orientation.y = 0.0;
+			customPose.pose.orientation.z = 0.0;
+			customPose.pose.orientation.w = 1.0;
+			customPoses.push_back(customPose);
 
 
-		customPose.header.frame_id = goal->objId;
-		customPose.pose.position.x = 0.02;
-		customPose.pose.position.y = 0.0;
-		customPose.pose.position.z = 0.0;
-		customPose.pose.orientation.x = 0.0;
-		customPose.pose.orientation.y = 0.0;
-		customPose.pose.orientation.z = 1.0;
-		customPose.pose.orientation.w = 0.0;
-		customPoses.push_back(customPose);
+			customPose.header.frame_id = goal->objId;
+			customPose.pose.position.x = 0.02;
+			customPose.pose.position.y = 0.0;
+			customPose.pose.position.z = 0.0;
+			customPose.pose.orientation.x = 0.0;
+			customPose.pose.orientation.y = 0.0;
+			customPose.pose.orientation.z = 1.0;
+			customPose.pose.orientation.w = 0.0;
+			customPoses.push_back(customPose);
+		}
+		else
+		{ 
+			customPoses.push_back(goal->pose);
+		}
 
 		taskName = goal->action + "_" + goal->objId;
 
