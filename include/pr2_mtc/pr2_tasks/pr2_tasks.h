@@ -97,6 +97,8 @@ class motionPlanning
 
         void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
 
+        void createPickTaskCustomDual(Task &pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second);
+
         void createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
 
         void createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId);

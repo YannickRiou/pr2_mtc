@@ -595,6 +595,240 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 
 }
 
+void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second)
+{
+	pickTask.setRobotModel(kinematic_model_);
+
+	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
+
+	// Property and variable definitions
+	std::string first_pregrasp;
+	std::string first_postgrasp;
+
+	std::string second_pregrasp;
+	std::string second_postgrasp;
+
+	pickTask.setProperty("object",object);
+	if(planGroup_first == "left_arm")
+	{
+		pickTask.setProperty("eef","left_gripper");
+		first_eef_ = "left_gripper";
+		first_pregrasp = "left_open";
+		first_postgrasp = "left_close";
+		first_ikFrame_ = "l_gripper_tool_frame";
+	}
+	else if(planGroup_first == "right_arm")
+	{
+		pickTask.setProperty("eef","right_gripper");
+		first_eef_ = "right_gripper";
+		first_pregrasp = "right_open";
+		first_postgrasp = "right_close";
+		first_ikFrame_ = "r_gripper_tool_frame";
+	}
+	
+
+	pickTask.setProperty("group",planGroup_first);
+
+	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
+	pipelinePlanner_->setPlannerId(PLANNER);
+
+	//Start state
+	Stage* current_state = nullptr;
+	auto initial = std::make_unique<stages::CurrentState>("current state");
+	current_state = initial.get();
+	pickTask.add(std::move(initial));
+
+
+	// ---------------------- open Hand ---------------------- //
+	{
+		auto stage = std::make_unique<stages::MoveTo>("open hand first arm", gripper_planner_);
+		stage->setGroup(first_eef_);
+		stage->setGoal(first_pregrasp);
+		current_state = stage.get();
+		pickTask.add(std::move(stage));
+	}
+
+	{
+		// connect to pick
+		stages::Connect::GroupPlannerVector planners = {{planGroup_first, pipelinePlanner_},{first_eef_, gripper_planner_}};
+		auto connect = std::make_unique<stages::Connect>("connect", planners);
+	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
+		connect->setTimeout(10.0);
+		connect->properties().configureInitFrom(Stage::PARENT);
+		pickTask.add(std::move(connect));
+	}
+
+	{
+		auto grasp = std::make_unique<SerialContainer>("pick object first arm");
+
+		pickTask.properties().exposeTo(grasp->properties(), { "eef", "group"});
+		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
+
+		// TODO TEST WITH THIS
+		grasp->setProperty("eef",first_eef_);
+
+		{
+			auto stage = std::make_unique<stages::MoveRelative>("approach object first arm", cartesianPlanner_);
+			stage->setProperty("group",planGroup_first);
+			stage->setMinMaxDistance(0.01, 0.20);
+			stage->setIKFrame(first_ikFrame_);
+			// Set upward direction
+			geometry_msgs::Vector3Stamped vec;
+			vec.header.frame_id = "base_footprint";
+			vec.vector.x = 1.0;
+			stage->setDirection(vec);
+			grasp->insert(std::move(stage));
+		}
+
+		{
+			/*auto stage = std::make_unique<stages::GeneratePose>("go to grasp pose");
+			stage->setPose(graspPose);
+			stage->properties().configureInitFrom(Stage::PARENT);*/
+
+			auto stage = std::make_unique<stages::GenerateCustomPose>("Generate Custom Poses first arm");
+			stage->setCustomPoses(graspPoses_first);
+			stage->properties().configureInitFrom(Stage::PARENT);
+			stage->setMonitoredStage(current_state);
+
+			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK first arm", std::move(stage) );
+			wrapper->setMaxIKSolutions(10);
+			wrapper->setIKFrame(first_ikFrame_);
+			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
+			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
+			grasp->insert(std::move(wrapper));
+		}
+
+		// ---------------------- Allow Collision (hand object) ---------------------- //
+		{
+			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object)");
+			stage->allowCollisions(object, pickTask.getRobotModel()->getJointModelGroup(first_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
+			grasp->insert(std::move(stage));
+		}
+
+			// ---------------------- Close Hand ---------------------- //
+		{
+			auto stage = std::make_unique<stages::MoveTo>("close hand first arm", gripper_planner_);
+			stage->setGroup(first_eef_);
+			stage->setGoal(first_postgrasp);
+			grasp->insert(std::move(stage));
+		}
+
+		pickTask.add(std::move(grasp));
+	}
+
+	if(planGroup_second == "left_arm")
+	{
+		pickTask.setProperty("eef","left_gripper");
+		second_eef_ = "left_gripper";
+		second_pregrasp = "left_open";
+		second_postgrasp = "left_close";
+		second_ikFrame_ = "l_gripper_tool_frame";
+	}
+	else if(planGroup_second == "right_arm")
+	{
+		pickTask.setProperty("eef","right_gripper");
+		second_eef_ = "right_gripper";
+		second_pregrasp = "right_open";
+		second_postgrasp = "right_close";
+		second_ikFrame_ = "r_gripper_tool_frame";
+	}
+
+	pickTask.setProperty("group",planGroup_second);
+
+	
+
+	// ---------------------- open Hand ---------------------- //
+	{
+		auto stage = std::make_unique<stages::MoveTo>("open hand second arm", gripper_planner_);
+		stage->setGroup(second_eef_);
+		stage->setGoal(second_pregrasp);
+		current_state = stage.get();
+		pickTask.add(std::move(stage));
+	}
+
+
+	{
+		// connect to pick
+		stages::Connect::GroupPlannerVector planners = {{planGroup_second, pipelinePlanner_},{second_eef_, gripper_planner_}};
+		auto connect = std::make_unique<stages::Connect>("connect", planners);
+	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
+		connect->setTimeout(10.0);
+		pickTask.add(std::move(connect));
+	}
+	
+	{
+		auto grasp = std::make_unique<SerialContainer>("pick object with second arm");
+
+		// TODO TEST WITH THIS
+		grasp->setProperty("eef",second_eef_);
+
+		{
+			auto stage = std::make_unique<stages::MoveRelative>("approach object second arm", cartesianPlanner_);
+			stage->setProperty("group",planGroup_second);
+			stage->setMinMaxDistance(0.01, 0.20);
+			stage->setIKFrame(second_ikFrame_);
+			// Set upward direction
+			geometry_msgs::Vector3Stamped vec;
+			vec.header.frame_id = "base_footprint";
+			vec.vector.x = 1.0;
+			stage->setDirection(vec);
+			grasp->insert(std::move(stage));
+		}
+
+		{
+			/*auto stage = std::make_unique<stages::GeneratePose>("go to grasp pose");
+			stage->setPose(graspPose);
+			stage->properties().configureInitFrom(Stage::PARENT);*/
+
+			auto stage = std::make_unique<stages::GenerateCustomPose>("Generate Custom Poses second arm");
+			stage->setCustomPoses(graspPoses_second);
+			stage->setProperty("group",planGroup_second);
+			stage->properties().configureInitFrom(Stage::PARENT);
+			stage->setMonitoredStage(current_state);
+
+			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK second arm", std::move(stage) );
+			wrapper->setMaxIKSolutions(10);
+			wrapper->setProperty("group",planGroup_second);
+			wrapper->setIKFrame(second_ikFrame_);
+			wrapper->setProperty("eef",second_eef_);
+
+			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
+			grasp->insert(std::move(wrapper));
+		}
+
+		// ---------------------- Allow Collision (hand object) ---------------------- //
+		{
+			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object) second arm");
+			stage->allowCollisions(object, pickTask.getRobotModel()->getJointModelGroup(second_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
+			grasp->insert(std::move(stage));
+		}
+
+			// ---------------------- Close Hand ---------------------- //
+		{
+			auto stage = std::make_unique<stages::MoveTo>("close hand second arm", gripper_planner_);
+			stage->setGroup(second_eef_);
+			stage->setGoal(second_postgrasp);
+			grasp->insert(std::move(stage));
+		}
+
+		// ---------------------- Attach Object ---------------------- //
+		{
+			auto stage = std::make_unique<stages::ModifyPlanningScene>("attach object to first arm");
+			if(planGroup_first == "left_arm")
+			{
+				stage->attachObject(object, "l_wrist_roll_link");
+			}
+			else if(planGroup_first == "right_arm")
+			{
+				stage->attachObject(object, "r_wrist_roll_link");
+			}
+			grasp->insert(std::move(stage));
+		}
+		
+		pickTask.add(std::move(grasp));
+	}
+}
+
  /**
  * \fn void createPickTask(Task &pickTask, const std::string planGroup,const std::string object)
  * \brief Function to create a pick task with grasp pose generator and planGroup (arm)
@@ -1149,6 +1383,41 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		// Create Task
 		lastPlannedTask_ = std::make_shared<Task>(taskName);
 		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
+	}
+	else if(goal->action == "pickDual")
+	{
+		customPoses.push_back(goal->pose);
+		std::vector<geometry_msgs::PoseStamped> customPoses_right;
+
+	    geometry_msgs::PoseStamped customPose_right = goal->pose;
+		customPose_right.pose.position.y *= -1;
+		customPoses_right.push_back(customPose_right);
+
+		std::string delim = "+";
+		std::string armGroup_left = "";
+		std::string armGroup_right = "";
+
+		auto start = 0U;
+		auto end = armGroup.find(delim);
+		
+		armGroup_left = armGroup.substr(start, end - start);
+		start = end + delim.length();
+		end = armGroup.find(delim, start);
+
+		armGroup_right = armGroup.substr(start, end - start);
+		start = end + delim.length();
+		end = armGroup.find(delim, start);
+	
+		taskName = goal->action + "_" + goal->objId + "with" + armGroup_left + "and" + armGroup_right;
+
+		factStampedMsg_.action = factStampedMsg_.PICK;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId.clear();
+		factStampedMsg_.arm = armGroup;
+
+		// Create Task
+		lastPlannedTask_ = std::make_shared<Task>(taskName);
+		createPickTaskCustomDual(*lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
 	}
 	else if(goal->action == "pickAuto")
 	{
