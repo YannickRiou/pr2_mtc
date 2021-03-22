@@ -146,11 +146,17 @@ class motionPlanning
         // planner used for gripper open/close movements
         std::shared_ptr<solvers::JointInterpolationPlanner> gripper_planner_;
 
+ 		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
+
         // Variable to set the eef used during task
         std::string eef_;
+        std::string first_eef_;
+        std::string second_eef_;
 
         // Variable to set the ikFrame used during task
 	    std::string ikFrame_;
+        std::string first_ikFrame_;
+        std::string second_ikFrame_;
 
  		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
 
