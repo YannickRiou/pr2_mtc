@@ -99,7 +99,7 @@ class motionPlanning
 
         void createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
 
-        void createDropTask(Task &dropTask, const std::string planGroup,const std::string object);
+        void createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId);
 
         void planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer);
 

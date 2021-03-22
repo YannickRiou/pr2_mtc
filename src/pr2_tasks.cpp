@@ -305,7 +305,7 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to be droped (it needs to be already attached to the eef of the associated planGroup)
  */
-void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,const std::string object)
+void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId)
 {
 	dropTask.setRobotModel(kinematic_model_);
 
@@ -321,8 +321,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		ikFrame_ = "l_gripper_tool_frame";
 		eef_ = "left_gripper";
 		homePoseId = "left_arm_home";
-		dropPose.header.frame_id = "throw_box_left";
-
+		dropPose.header.frame_id = boxId;
 		ungrasp = "left_open";
 	}
 	else if(planGroup == "right_arm")
@@ -330,7 +329,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		ikFrame_ = "r_gripper_tool_frame";
 		eef_ = "right_gripper";
 		homePoseId = "right_arm_home";
-		dropPose.header.frame_id = "throw_box_right";
+		dropPose.header.frame_id = boxId;
 		ungrasp = "right_open";
 	}
 
@@ -1226,10 +1225,10 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		factStampedMsg_.action = factStampedMsg_.DROP;
 		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId.clear();
+		factStampedMsg_.boxId = goal->boxId;
 		factStampedMsg_.arm = armGroup;
 
-		createDropTask(*lastPlannedTask_, armGroup,goal->objId);
+		createDropTask(*lastPlannedTask_, armGroup,goal->objId, goal->boxId);
 	}
 	else
 	{
