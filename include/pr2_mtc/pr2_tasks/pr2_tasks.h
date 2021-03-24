@@ -158,6 +158,4 @@ class motionPlanning
         std::string first_ikFrame_;
         std::string second_ikFrame_;
 
- 		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
-
 };
