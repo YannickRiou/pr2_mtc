@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   dt_resources
   roscpp
   rospy
+  move_group_x
+  dual_arm_manipulation
   rviz_marker_tools
   ontologenius
   pr2_motion_tasks_msgs
