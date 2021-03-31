@@ -302,7 +302,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
           setGripperTranslation(loc.first_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
       
           openGripper(loc.second_post_place_posture,"right_arm");
-          setGripperTranslation(loc.second_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., -1.);
+          setGripperTranslation(loc.second_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
         
 
           // Set the dual arm place location. This defines the desired pose of the frame "frame_to_place" in the world_frame.
