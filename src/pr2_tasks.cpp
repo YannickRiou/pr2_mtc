@@ -309,7 +309,6 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 {
 	dropTask.setRobotModel(kinematic_model_);
 
-	std::string homePoseId;
 	std::string ungrasp;
 
 	geometry_msgs::PoseStamped dropPose;
@@ -320,22 +319,19 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 	{
 		ikFrame_ = "l_gripper_tool_frame";
 		eef_ = "left_gripper";
-		homePoseId = "left_arm_home";
-		dropPose.header.frame_id = boxId;
 		ungrasp = "left_open";
 	}
 	else if(planGroup == "right_arm")
 	{
 		ikFrame_ = "r_gripper_tool_frame";
 		eef_ = "right_gripper";
-		homePoseId = "right_arm_home";
-		dropPose.header.frame_id = boxId;
 		ungrasp = "right_open";
 	}
 
+	dropPose.header.frame_id = boxId;
 	dropPose.pose.position.x = 0.0;
-	dropPose.pose.position.y = 0.0;
-	dropPose.pose.position.z = 0.7;
+	dropPose.pose.position.y = -0.05;
+	dropPose.pose.position.z = 0.25;
 	dropPose.pose.orientation.x = 0.0;
 	dropPose.pose.orientation.y = 0.707;
 	dropPose.pose.orientation.z = 0.0;
@@ -581,7 +577,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.25, 0.30);
+			stage->setMinMaxDistance(0.20, 0.25);
 			stage->setIKFrame(ikFrame_);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -675,7 +671,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
+			vec.vector.z = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -770,7 +766,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
+			vec.vector.z = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -1283,7 +1279,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::string armGroup;
 	std::string taskName;
 
-	if((goal->action == "pick") || (goal->action == "pickAuto") || (goal->action == "updateWorld"))
+	if((goal->action == "pick") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld"))
 	{
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
@@ -1397,7 +1393,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		std::vector<geometry_msgs::PoseStamped> customPoses_right;
 
 	    geometry_msgs::PoseStamped customPose_right = goal->pose;
-		customPose_right.pose.position.y *= -1;
+		customPose_right.pose.position.x *= -1;
 		customPoses_right.push_back(customPose_right);
 
 		std::string delim = "+";
