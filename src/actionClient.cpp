@@ -58,6 +58,15 @@ void lookAt(std::string frame_id, double x, double y, double z)
   point_head_client->waitForResult(ros::Duration(2));
 }
 
+void waitUser(const std::string msg)
+{
+    do{
+        // Use AINSI Escape code to make the text green in a Linux terminal
+        std::cout<<"\033[1;32m\n"
+                   "Press ENTER: "<<msg<<" \033[0m\n";
+    }while (std::cin.get() != '\n');
+}
+
 void setPosePosition(geometry_msgs::Pose& p, const double x, const double y, const double z)
 {
     p.position.x = x;
@@ -195,11 +204,13 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   planClient.waitForServer(); //will wait for infinite time
   executeClient.waitForServer(); //will wait for infinite time
 
+  waitUser("To pick the object with the right arm");
+
   {
-    lookAt("cube_BBTG",0,0,0);
+    lookAt("cube_GBCG",0,0,0);
     planGoal.planGroup = "right_arm";
-    planGoal.objId = "cube_BBTG";
-    planGoal.action = "pickAuto";
+    planGoal.objId = "cube_GBCG";
+    planGoal.action = "pick";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
@@ -214,33 +225,25 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
       return;
     }
   }
-  
   if (executeClient.getResult()->error_code == 1)
   {
-    lookAt("throw_box_pink",0,0,0);
-    planGoal.planGroup = "right_arm";
-    planGoal.objId = "cube_BBTG";
-    planGoal.action = "drop";
+    planGoal.planGroup = "arms";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "arms_home";
+
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
-    if(planClient.getResult()->error_code == 1)
-    {
-      executeClient.sendGoal(executeGoal);
-      executeClient.waitForResult();
-    }
-    else
-    {
-      ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
-      return;
-    }
-
+    executeClient.sendGoal(executeGoal);
+    executeClient.waitForResult();
+    
     if (executeClient.getResult()->error_code == 1)
     {
-      lookAt("cube_GBTB",0,0,0);
+      lookAt("throw_box_pink",0,0,0);
       planGoal.planGroup = "right_arm";
-      planGoal.objId = "cube_GBTB";
-      planGoal.action = "pickAuto";
+      planGoal.objId = "cube_GBCG";
+      planGoal.boxId = "throw_box_pink";
+      planGoal.action = "drop";
       planClient.sendGoal(planGoal);
       planClient.waitForResult();
 
@@ -255,79 +258,143 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
         return;
       }
 
-       
+      planGoal.planGroup = "arms";
+      planGoal.action = "move";
+      planGoal.predefined_pose_id = "arms_home";
+
+      planClient.sendGoal(planGoal);
+      planClient.waitForResult();
+
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+
       if (executeClient.getResult()->error_code == 1)
       {
-        lookAt("throw_box_pink",0,0,0);
+        lookAt("cube_GBTG_2",0,0,0);
         planGoal.planGroup = "right_arm";
-        planGoal.objId = "cube_GBTB";
-        planGoal.action = "drop";
+        planGoal.objId = "cube_GBTG_2";
+        planGoal.action = "pick";
         planClient.sendGoal(planGoal);
         planClient.waitForResult();
 
-
-        // dual arm pick 
-        lookAt("throw_box_pink",0,0,0);
-        planGoal.planGroup = "left_arm+right_arm";
-        planGoal.objId = "throw_box_pink";
-        planGoal.action = "pickDual";
-
-        customPose.header.frame_id = "throw_box_pink";
-        customPose.pose.position.x = -0.185;
-        customPose.pose.position.y = -0.10;
-        customPose.pose.position.z = 0.230;
-        customPose.pose.orientation.x = -0.500;
-        customPose.pose.orientation.y = 0.500;
-        customPose.pose.orientation.z = 0.500;
-        customPose.pose.orientation.w = 0.500;
-
-        planGoal.pose = customPose;
-        planClient.sendGoal(planGoal);
-        planClient.waitForResult();
+        if(planClient.getResult()->error_code == 1)
+        {
+          executeClient.sendGoal(executeGoal);
+          executeClient.waitForResult();
+        }
+        else
+        {
+          ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+          return;
+        }
 
         if (executeClient.getResult()->error_code == 1)
         {
 
-          // TODO: Deplacement devant pos_2 marker
+          planGoal.planGroup = "arms";
+          planGoal.action = "move";
+          planGoal.predefined_pose_id = "arms_home";
 
-          // dual Arm place 
-          arms_torso.setPlannerId("RRTConnectkConfigDualArm");
+          planClient.sendGoal(planGoal);
+          planClient.waitForResult();
 
-          dual_arm_msgs::DualArmPlaceLocation loc;
-          loc.id = "loc_da_1";
-          loc.first_eef_link = "l_wrist_roll_link";
-          loc.second_eef_link = "r_wrist_roll_link";
+          executeClient.sendGoal(executeGoal);
+          executeClient.waitForResult();        
 
-          openGripper(loc.first_post_place_posture,"left_arm");
-          setGripperTranslation(loc.first_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
-      
-          openGripper(loc.second_post_place_posture,"right_arm");
-          setGripperTranslation(loc.second_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
-        
+          if (executeClient.getResult()->error_code == 1)
+          {
+            lookAt("throw_box_pink",0,0,0);
+            planGoal.planGroup = "right_arm";
+            planGoal.objId = "cube_GBTG_2";
+            planGoal.action = "drop";
+            planGoal.boxId = "throw_box_pink";
+            planClient.sendGoal(planGoal);
+            planClient.waitForResult();
 
-          // Set the dual arm place location. This defines the desired pose of the frame "frame_to_place" in the world_frame.
-          // So at the end of the dual arm place the "frame_to_place" will be at loc.place_pose.
-          loc.place_pose.header.frame_id = "table_1";
-          setPosePosition(loc.place_pose.pose, 0.0, 0.0, 0.05);
-          setPoseRPY(loc.place_pose.pose, 0, 0., 0.);
-          loc.frame_to_place = "throw_box_pink";
+            executeClient.sendGoal(executeGoal);
+            executeClient.waitForResult();
 
-          // Set the start translation of the left gripper (as frame_to_place is the left gripper tool frame).
-          // In some case the part can be in a support (slot) and this starting translation allows to extract the part from this support.
-          setGripperTranslation(loc.start_place_translation, "base_footprint", 0.1, 0.05, 0., 0., 1.);
+            planGoal.planGroup = "arms";
+            planGoal.action = "move";
+            planGoal.predefined_pose_id = "arms_home";
 
-          // Set the approach of the left_gripper (as frame_to_place is the left gripper tool frame).
-          setGripperTranslation(loc.pre_place_approach, "base_footprint", 0.1, 0.05, 1., 0., 0.);
+            planClient.sendGoal(planGoal);
+            planClient.waitForResult();
 
-          // Send the request to the dual arm place action server
-          arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
+            executeClient.sendGoal(executeGoal);
+            executeClient.waitForResult();
+
+            waitUser("To pick the box with the both arm");
+
+            // dual arm pick 
+            lookAt("throw_box_pink",0,0,0);
+            planGoal.planGroup = "left_arm+right_arm";
+            planGoal.objId = "throw_box_pink";
+            planGoal.action = "pickDual";
+
+            customPose.header.frame_id = "throw_box_pink";
+            customPose.pose.position.x = -0.185;
+            customPose.pose.position.y = -0.08;
+            customPose.pose.position.z = 0.22;
+            customPose.pose.orientation.x = -0.500;
+            customPose.pose.orientation.y = 0.500;
+            customPose.pose.orientation.z = 0.500;
+            customPose.pose.orientation.w = 0.500;
+
+            planGoal.pose = customPose;
+            planClient.sendGoal(planGoal);
+            planClient.waitForResult();
+
+            executeClient.sendGoal(executeGoal);
+            executeClient.waitForResult();
+
+            if (executeClient.getResult()->error_code == 1)
+            {
+
+              // TODO: Deplacement devant pos_2 marker
+
+              waitUser("To place the box with the both arm");
+
+              // dual Arm place 
+              arms_torso.setPlannerId("RRTConnectkConfigDualArm");
+
+              dual_arm_msgs::DualArmPlaceLocation loc;
+              loc.id = "loc_da_1";
+              loc.first_eef_link = "l_wrist_roll_link";
+              loc.second_eef_link = "r_wrist_roll_link";
+
+              openGripper(loc.first_post_place_posture,"left_arm");
+              setGripperTranslation(loc.first_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
+          
+              openGripper(loc.second_post_place_posture,"right_arm");
+              setGripperTranslation(loc.second_post_place_retreat, "throw_box_pink", 0.15, 0.1, 0., 0., 1.);
+            
+
+              // Set the dual arm place location. This defines the desired pose of the frame "frame_to_place" in the world_frame.
+              // So at the end of the dual arm place the "frame_to_place" will be at loc.place_pose.
+              loc.place_pose.header.frame_id = "throw_box_pink";
+              setPosePosition(loc.place_pose.pose, 0.10, 0.0, 0.01);
+              setPoseRPY(loc.place_pose.pose, 0, 0., 0.);
+              loc.frame_to_place = "throw_box_pink";
+
+              // Set the start translation of the left gripper (as frame_to_place is the left gripper tool frame).
+              // In some case the part can be in a support (slot) and this starting translation allows to extract the part from this support.
+              setGripperTranslation(loc.start_place_translation, "base_footprint", 0.1, 0.05, 0., 0., 1.);
+
+              // Set the approach of the left_gripper (as frame_to_place is the left gripper tool frame).
+              setGripperTranslation(loc.pre_place_approach, "base_footprint", 0.1, 0.05, 1., 0., -1.);
+
+              // Send the request to the dual arm place action server
+              arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
+
+
+            }
+          }
 
 
         }
 
-
       }
-
     }
 
 
@@ -372,7 +439,7 @@ int main(int argc, char **argv)
 
   actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction> execute("/pr2_tasks_node/execute", true);
 
-  home_body(plan,execute);
+  //home_body(plan,execute);
 
   scenario_dual_arm(plan,execute);
   
