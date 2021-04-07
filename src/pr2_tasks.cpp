@@ -581,7 +581,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.25, 0.30);
+			stage->setMinMaxDistance(0.10, 0.30);
 			stage->setIKFrame(ikFrame_);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -1489,6 +1489,14 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		}
 		else
 		{
+			if((goal->predefined_pose_id == "left_arm_home") && (armGroup == ""))
+			{
+				armGroup = "left_arm";
+			}
+			else if((goal->predefined_pose_id == "right_arm_home") && (armGroup == ""))
+			{
+				armGroup = "right_arm";
+			}
 			createMovePredefinedTask(*lastPlannedTask_, armGroup,goal->predefined_pose_id);
 		}
 	}
