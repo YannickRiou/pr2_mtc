@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   move_group_x
+  move_base_msgs
   dual_arm_manipulation
   rviz_marker_tools
   ontologenius
