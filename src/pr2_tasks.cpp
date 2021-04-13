@@ -333,13 +333,29 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		ungrasp = "right_open";
 	}
 
-	dropPose.pose.position.x = 0.0;
-	dropPose.pose.position.y = 0.0;
-	dropPose.pose.position.z = 0.7;
-	dropPose.pose.orientation.x = 0.0;
-	dropPose.pose.orientation.y = 0.707;
-	dropPose.pose.orientation.z = 0.0;
-	dropPose.pose.orientation.w = 0.707;
+	std::vector<geometry_msgs::PoseStamped> dropPoses;
+	geometry_msgs::PoseStamped customDropPose;
+
+
+	customDropPose.header.frame_id = boxId;
+	customDropPose.pose.position.x = 0.0;
+	customDropPose.pose.position.y = 0.0;
+	customDropPose.pose.position.z = 0.30;
+	customDropPose.pose.orientation.x = 0.0;
+	customDropPose.pose.orientation.y = 0.707;
+	customDropPose.pose.orientation.z = 0.0;
+	customDropPose.pose.orientation.w = 0.707;
+	dropPoses.push_back(customDropPose);
+
+	customDropPose.header.frame_id = boxId;
+	customDropPose.pose.position.x = 0.0;
+	customDropPose.pose.position.y = 0.0;
+	customDropPose.pose.position.z = 0.30;
+	customDropPose.pose.orientation.x = 0.0;
+	customDropPose.pose.orientation.y = 0.0;
+	customDropPose.pose.orientation.z = 0.707;
+	customDropPose.pose.orientation.w = 0.707;
+	dropPoses.push_back(customDropPose);
 
 	// Increase precision for drop to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
@@ -355,7 +371,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 
 	{
 		// connect
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->properties().configureInitFrom(Stage::PARENT);
@@ -363,15 +379,17 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 	}
 
 	{
-		auto stage = std::make_unique<stages::GeneratePose>("go to pose");
+		auto stage = std::make_unique<stages::GenerateCustomPose>("Generate Custom Poses");
+		stage->setCustomPoses(dropPoses);
 		stage->setProperty("group",planGroup);
 		stage->setProperty("eef",eef_);
 		stage->setPose(dropPose);
 		stage->setMonitoredStage(current_state);
 
-		auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
+		auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
 		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
+		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
