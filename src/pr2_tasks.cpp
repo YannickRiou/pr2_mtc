@@ -693,7 +693,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
+			vec.vector.z = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -788,7 +788,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
+			vec.vector.z = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
