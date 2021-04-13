@@ -650,6 +650,9 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
 	pipelinePlanner_->setPlannerId(PLANNER);
 
+	auto cartesian = std::make_shared<solvers::CartesianPath>();
+	cartesian->setProperty("jump_threshold", 0.0);
+
 	//Start state
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
@@ -845,6 +848,38 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		
 		pickTask.add(std::move(grasp));
 	}
+
+	auto merger = std::make_unique<Merger>();
+
+	{
+		auto stage = std::make_unique<stages::MoveRelative>("set object higher left", cartesianPlanner_);
+		stage->properties().set("link", "l_gripper_tool_frame");
+		stage->properties().set("group","left_arm");
+		stage->setMinMaxDistance(0.02, .02);
+		// Set downward direction
+		geometry_msgs::Vector3Stamped vec;
+		vec.header.frame_id = "base_footprint";
+		vec.vector.z = 1.0;
+		stage->setDirection(vec);
+
+		merger->insert(std::move(stage));
+	}
+
+
+	{
+		auto stage = std::make_unique<stages::MoveRelative>("set object higher right", cartesianPlanner_);
+		stage->properties().set("link", "r_gripper_tool_frame");
+		stage->properties().set("group","right_arm");
+		stage->setMinMaxDistance(0.02, .02);
+		// Set downward direction
+		geometry_msgs::Vector3Stamped vec;
+		vec.header.frame_id = "base_footprint";
+		vec.vector.z = 1.0;
+		stage->setDirection(vec);
+
+		merger->insert(std::move(stage));
+	}
+	pickTask.add(std::move(merger));
 }
 
  /**
