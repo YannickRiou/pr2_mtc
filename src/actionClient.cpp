@@ -224,7 +224,6 @@ pr2_motion_tasks_msgs::planGoal planGoal;
       return;
     }
   }
-  
   if (executeClient.getResult()->error_code == 1)
   {
     planGoal.planGroup = "left_arm";
