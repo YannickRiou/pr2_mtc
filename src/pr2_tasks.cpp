@@ -309,7 +309,6 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 {
 	dropTask.setRobotModel(kinematic_model_);
 
-	std::string homePoseId;
 	std::string ungrasp;
 
 	geometry_msgs::PoseStamped dropPose;
@@ -320,16 +319,12 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 	{
 		ikFrame_ = "l_gripper_tool_frame";
 		eef_ = "left_gripper";
-		homePoseId = "left_arm_home";
-		dropPose.header.frame_id = boxId;
 		ungrasp = "left_open";
 	}
 	else if(planGroup == "right_arm")
 	{
 		ikFrame_ = "r_gripper_tool_frame";
 		eef_ = "right_gripper";
-		homePoseId = "right_arm_home";
-		dropPose.header.frame_id = boxId;
 		ungrasp = "right_open";
 	}
 
@@ -383,7 +378,6 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		stage->setCustomPoses(dropPoses);
 		stage->setProperty("group",planGroup);
 		stage->setProperty("eef",eef_);
-		stage->setPose(dropPose);
 		stage->setMonitoredStage(current_state);
 
 		auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
@@ -392,7 +386,6 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
-		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		dropTask.add(std::move(wrapper));
 	}
 
