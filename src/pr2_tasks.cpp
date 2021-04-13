@@ -1115,6 +1115,9 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	// Add support surface to also add the table to the world
 	objIds.push_back(SUPPORT_SURFACE);
 
+	// Add support surface to also add the table to the world
+	objIds.push_back("table_2");
+
 	// Ask underworld about poses of these ids
 	pr2_motion_tasks_msgs::GetPose srv;
 	srv.request.ids = objIds;
@@ -1220,46 +1223,6 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 			}
 	 	}
 
-		// Add the two box where to throw objects (not seen by perception)
-		throwBox_left.id = "throw_box_left";
-		throwBox_left.header.frame_id = "base_footprint";
-		throwBox_left.operation = throwBox_left.ADD;
-		m = shapes::createMeshFromResource("package://dt_resources/mesh/throw_box.dae");
-		shapes::constructMsgFromShape(m, mesh_msg);
-		mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-		// Add the mesh to the Collision object message
-		throwBox_left.meshes.push_back(mesh);
-		geometry_msgs::PoseStamped throw_box_pose;
-		throw_box_pose.header.frame_id= "base_footprint";
-		throw_box_pose.pose.position.x = 0.0;
-		throw_box_pose.pose.position.y = 0.7;
-		throw_box_pose.pose.position.z = 0.0;
-		throw_box_pose.pose.orientation.x = 0.0;
-		throw_box_pose.pose.orientation.y = 0.0;
-		throw_box_pose.pose.orientation.z = 0.0;
-		throw_box_pose.pose.orientation.w = 1.0;
-		throwBox_left.mesh_poses.push_back(throw_box_pose.pose);
-		planning_scene_interface_.applyCollisionObject(throwBox_left);
-
-		// Add the two box where to throw objects (not seen by perception)
-		throwBox_right.id = "throw_box_right";
-		throwBox_right.header.frame_id = "base_footprint";
-		throwBox_right.operation = throwBox_right.ADD;
-		m = shapes::createMeshFromResource("package://dt_resources/mesh/throw_box.dae");
-		shapes::constructMsgFromShape(m, mesh_msg);
-		mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-		// Add the mesh to the Collision object message
-		throwBox_right.meshes.push_back(mesh);
-		throw_box_pose.header.frame_id= "base_footprint";
-		throw_box_pose.pose.position.x = 0.0;
-		throw_box_pose.pose.position.y = -0.7;
-		throw_box_pose.pose.position.z = 0.0;
-		throw_box_pose.pose.orientation.x = 0.0;
-		throw_box_pose.pose.orientation.y = 0.0;
-		throw_box_pose.pose.orientation.z = 0.0;
-		throw_box_pose.pose.orientation.w = 1.0;
-		throwBox_right.mesh_poses.push_back(throw_box_pose.pose);
-		planning_scene_interface_.applyCollisionObject(throwBox_right);
 	}
 	else
 	{
@@ -1336,7 +1299,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::string armGroup;
 	std::string taskName;
 
-	if((goal->action == "pick") || (goal->action == "pickAuto") || (goal->action == "updateWorld"))
+	if((goal->action == "pick") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld"))
 	{
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
@@ -1450,7 +1413,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		std::vector<geometry_msgs::PoseStamped> customPoses_right;
 
 	    geometry_msgs::PoseStamped customPose_right = goal->pose;
-		customPose_right.pose.position.y *= -1;
+		customPose_right.pose.position.x *= -1;
 		customPoses_right.push_back(customPose_right);
 
 		std::string delim = "+";
