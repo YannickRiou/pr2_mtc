@@ -61,6 +61,8 @@
   <build_depend>dual_arm_manipulation</build_depend>
   <build_depend>move_group_x</build_depend>
   <build_depend>move_base_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
   <build_export_depend>eigen_conversions</build_export_depend>
   <build_export_depend>moveit_ros_planning_interface</build_export_depend>
   <build_export_depend>moveit_task_constructor_core</build_export_depend>
@@ -83,8 +85,14 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>moveit_msgs</exec_depend>
   <exec_depend>move_base_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
 
 
+  <depend>actionlib</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

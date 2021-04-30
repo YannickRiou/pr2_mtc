@@ -11,7 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning_interface
   moveit_task_constructor_core
   moveit_msgs
+  geometry_msgs
+  message_generation
   dt_resources
+  tf2_geometry_msgs
+  tf2
+  tf2_ros
+  actionlib
   roscpp
   rospy
   move_group_x
@@ -62,7 +68,16 @@ find_package(catkin REQUIRED COMPONENTS
 #   Message2.msg
 # )
 
+add_action_files(
+  FILES
+  Dock.action
+)
 
+generate_messages(
+  DEPENDENCIES
+  move_base_msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -96,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES pr2_mtc
-#  CATKIN_DEPENDS eigen_conversions moveit_ros_planning_interface moveit_task_constructor_core roscpp rospy rviz_marker_tools std_msgs
+ CATKIN_DEPENDS tf2_geometry_msgs tf2 tf2_ros geometry_msgs actionlib message_runtime move_base_msgs roscpp
 #  DEPENDS system_lib
 )
 
@@ -119,6 +134,10 @@ add_dependencies(pr2_tasks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_executable(actionClient src/actionClient.cpp)
 target_link_libraries(actionClient ${catkin_LIBRARIES})
 add_dependencies(actionClient ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(docking_node src/docking_node.cpp)
+target_link_libraries(docking_node ${catkin_LIBRARIES})
+add_dependencies(docking_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
 add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

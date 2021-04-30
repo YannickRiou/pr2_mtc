@@ -10,39 +10,7 @@
 // Head related include
 #include <pr2_controllers_msgs/PointHeadAction.h>
 
-#include <tf2_ros/transform_listener.h>
-
 #include <geometry_msgs/Twist.h>
-
-int approachTo(ros::NodeHandle &nh, string frame, float64 x, float64 y, float64 theta)
-{
-    ros::Publisher cmd_base_pub;
-    cmd_base_pub = nh_.advertise<geometry_msgs::Twist>("/base_controller/command", 1);
-
-    tf2_ros::Buffer tfBuffer;
-    tf2_ros::TransformListener tfListener(tfBuffer);
-
-    geometry_msgs::Twist base_cmd;
-
-    geometry_msgs::TransformStamped transformStamped;
-
-    try
-    {
-      tfBuffer.waitf2orTransform("base_link", frame, ros::Time(0));
-      transformStamped = tfBuffer.lookupTransform("base_link", frame, ros::Time(0));
-    }
-    catch (tf2::TransformException &ex) {
-      ROS_WARN("%s",ex.what());
-      ros::Duration(1.0).sleep();
-      return -1;
-    }
-
-    base_cmd.linear.x = (transformStamped.transform.translation.x - x);
-    base_cmd.linear.y = (transformStamped.transform.translation.y - y);
-    base_cmd.angular.z = (transformStamped.transform.rotation.z - theta);
-  
-    cmd_vel_pub_.publish(base_cmd);
-}
 
 void lookAt(std::string frame_id, double x, double y, double z)
 {
