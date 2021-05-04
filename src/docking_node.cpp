@@ -43,8 +43,12 @@ public:
         tf2::Transform poseTf; 
 
         poseTf.setOrigin( tf2::Vector3(goal->targetPose.pose.position.x, goal->targetPose.pose.position.y, goal->targetPose.pose.position.z) );
-        poseTf.setRotation( tf2::Quaternion(goal->targetPose.pose.orientation.x, goal->targetPose.pose.orientation.y, goal->targetPose.pose.orientation.z, goal->targetPose.pose.orientation.w) );
+        //poseTf.setRotation( tf2::Quaternion(goal->targetPose.pose.orientation.x, goal->targetPose.pose.orientation.y, goal->targetPose.pose.orientation.z, goal->targetPose.pose.orientation.w) );
       
+        //============================================================
+        //  Handle X/Y position correction
+        //============================================================
+
         geometry_msgs::TransformStamped map2footprintMsg = tfBuffer_.lookupTransform("map", "base_footprint", timeZero);
         tf2::Transform map2footprint;
         tf2::fromMsg(map2footprintMsg.transform, map2footprint);
@@ -105,6 +109,61 @@ public:
         }
         cmdVel.linear.x = 0.0;
         cmdVel.linear.y = 0.0;
+        cmdVelPub_.publish(cmdVel);
+
+        //============================================================
+        //  Handle Z rotation correction
+        //============================================================
+
+        // Update base position in map
+        map2footprintMsg = tfBuffer_.lookupTransform("map", "base_footprint", timeZero);
+        tf2::fromMsg(map2footprintMsg.transform, map2footprint);
+
+        double tf2::tf2Angle(poseTf.getRotation(), map2footprint.getRotation())
+    
+        lastControl = ros::Time::now();
+        now = lastControl;
+        actionStart = ros::Time::now();
+        integral = 0.0;
+        feedback.action_start = actionStart;
+        feedback.distance_to_goal = error;
+        dockActionServer_.publishFeedback(feedback);
+        while (std::abs(error) > params.goalTolerance && ros::ok())
+        {
+            map2footprintMsg = tfBuffer_.lookupTransform("map", "base_footprint", ros::Time(0.0));
+            tf2::fromMsg(map2footprintMsg.transform, map2footprint);
+
+            error = tf2::tf2Angle(poseTf.getRotation(), map2footprint.getRotation());
+            feedback.distance_to_goal = error;
+
+            dockActionServer_.publishFeedback(feedback);
+
+            getParams(params);
+            now = ros::Time::now();
+
+            if (dockActionServer_.isPreemptRequested())
+            {
+                cmdVel.angular.z = 0.0;
+                cmdVelPub_.publish(cmdVel);
+                asResult.error_code = asResult.PREEMPTED;
+                asResult.action_end = ros::Time::now();
+                dockActionServer_.setPreempted(asResult);
+                return;
+            }
+
+            integral = std::max(-params.maxIntegral, std::min(params.maxIntegral, integral + error * (now - lastControl).toSec()));
+
+            cmd = std::max(-params.maxSpeed, std::min(params.maxSpeed, params.p * error + params.i * integral));
+
+            cmdVel.angular.z = cmd ;
+
+            cmdVelPub_.publish(cmdVel);
+
+            lastControl = now;
+            params.controlPeriod.sleep();
+        }
+
+        cmdVel.angular.z = 0.0;
         asResult.action_end = ros::Time::now();
         cmdVelPub_.publish(cmdVel);
         asResult.error_code = asResult.SUCCESS;
