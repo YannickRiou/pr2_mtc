@@ -485,7 +485,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		// connect to pick
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
-		connect->setPathConstraints(upright_constraint);
+		//connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->setTimeout(10.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
@@ -509,7 +509,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.x = 1.0;
+			vec.vector.z = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -592,7 +592,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.10, 0.25);
+			stage->setMinMaxDistance(0.03, 0.25);
 			stage->setIKFrame(ikFrame_);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -848,7 +848,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		auto stage = std::make_unique<stages::MoveRelative>("set object higher left", cartesianPlanner_);
 		stage->properties().set("link", "l_gripper_tool_frame");
 		stage->properties().set("group","left_arm");
-		stage->setMinMaxDistance(0.02, .02);
+		stage->setMinMaxDistance(0.05, .05);
 		// Set downward direction
 		geometry_msgs::Vector3Stamped vec;
 		vec.header.frame_id = "base_footprint";
@@ -863,7 +863,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		auto stage = std::make_unique<stages::MoveRelative>("set object higher right", cartesianPlanner_);
 		stage->properties().set("link", "r_gripper_tool_frame");
 		stage->properties().set("group","right_arm");
-		stage->setMinMaxDistance(0.02, .02);
+		stage->setMinMaxDistance(0.05, .05);
 		// Set downward direction
 		geometry_msgs::Vector3Stamped vec;
 		vec.header.frame_id = "base_footprint";
@@ -1363,7 +1363,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		if(goal->pose.header.frame_id == "")
 		{
-			customPose.header.frame_id = goal->objId;
+			/*customPose.header.frame_id = goal->objId;
 			customPose.pose.position.x = -0.02;
 			customPose.pose.position.y = 0.0;
 			customPose.pose.position.z = 0.0;
@@ -1382,6 +1382,16 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			customPose.pose.orientation.y = 0.0;
 			customPose.pose.orientation.z = 1.0;
 			customPose.pose.orientation.w = 0.0;
+			customPoses.push_back(customPose);*/
+
+			customPose.header.frame_id = goal->objId;
+			customPose.pose.position.x = 0.0;
+			customPose.pose.position.y = 0.0;
+			customPose.pose.position.z = 0.04;
+			customPose.pose.orientation.x = 0.0;
+			customPose.pose.orientation.y = 0.707;
+			customPose.pose.orientation.z = 0.0;
+			customPose.pose.orientation.w = 0.707;
 			customPoses.push_back(customPose);
 		}
 		else
