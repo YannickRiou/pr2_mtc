@@ -509,7 +509,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = "base_footprint";
-			vec.vector.z = -1.0;
+			vec.vector.x = 1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
@@ -841,38 +841,6 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		
 		pickTask.add(std::move(grasp));
 	}
-
-	auto merger = std::make_unique<Merger>();
-
-	{
-		auto stage = std::make_unique<stages::MoveRelative>("set object higher left", cartesianPlanner_);
-		stage->properties().set("link", "l_gripper_tool_frame");
-		stage->properties().set("group","left_arm");
-		stage->setMinMaxDistance(0.05, .05);
-		// Set downward direction
-		geometry_msgs::Vector3Stamped vec;
-		vec.header.frame_id = "base_footprint";
-		vec.vector.z = 1.0;
-		stage->setDirection(vec);
-
-		merger->insert(std::move(stage));
-	}
-
-
-	{
-		auto stage = std::make_unique<stages::MoveRelative>("set object higher right", cartesianPlanner_);
-		stage->properties().set("link", "r_gripper_tool_frame");
-		stage->properties().set("group","right_arm");
-		stage->setMinMaxDistance(0.05, .05);
-		// Set downward direction
-		geometry_msgs::Vector3Stamped vec;
-		vec.header.frame_id = "base_footprint";
-		vec.vector.z = 1.0;
-		stage->setDirection(vec);
-
-		merger->insert(std::move(stage));
-	}
-	pickTask.add(std::move(merger));
 }
 
  /**
@@ -1087,6 +1055,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	geometry_msgs::PoseStamped colliObjPosetransformed;
 	geometry_msgs::PoseStamped colliObjPoseUntransformed;
 
+	std::vector<std::string> objIds;
+	std::vector<std::string> furnitureIds;
+
+	pr2_motion_tasks_msgs::GetPose srv;
+
 	// Delete all objects from the scene to avoid artifacts.
 	std::vector<std::string> objToDelete = planning_scene_interface_.getKnownObjectNames();
 	std::map< std::string,moveit_msgs::AttachedCollisionObject> knownAttachedObj = planning_scene_interface_.getAttachedObjects();
@@ -1103,21 +1076,21 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		}
 	}
 
-	std::vector<std::string> objIds = onto_.individuals.getOn(SUPPORT_SURFACE,"isBelow");
-
 	// Add support surface to also add the table to the world
-	objIds.push_back(SUPPORT_SURFACE);
+	//objIds.push_back(SUPPORT_SURFACE);
 
-	// Add support surface to also add the table to the world
-	objIds.push_back("table_2");
+	furnitureIds = onto_.individuals.getType("Furniture");
+	ROS_ERROR_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
 
-	// Ask underworld about poses of these ids
-	pr2_motion_tasks_msgs::GetPose srv;
-	srv.request.ids = objIds;
-	if (udwClient.call(srv))
+	// For all furniture, get all the object that are on them
+	for (int j=0; j < furnitureIds.size(); j++)
 	{
-		for (int i=0; i < objIds.size(); i++)
-    	{
+		ROS_ERROR_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
+		ROS_ERROR_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
+
+		srv.request.ids = furnitureIds;
+		if (udwClient.call(srv))
+		{
 			// Clear vector to be able to reuse it
 			collisionObj.meshes.clear();
 			collisionObj.mesh_poses.clear();
@@ -1125,15 +1098,15 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 			// Fill in mesh URI (ask ontology or get it from the cache)
 			//Verify if frame_id isn't empty
 			// UWDS publish with frame_id as /map so transform to base_footprint
-			if(!srv.response.poses[i].header.frame_id.empty())
+			if(!srv.response.poses[j].header.frame_id.empty())
 			{
 				// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
 				// Will wait for 1 seconds
-				if(srv.response.poses[i].header.frame_id != "/base_footprint")
+				if(srv.response.poses[j].header.frame_id != "/base_footprint")
 				{
 					try
 					{
-					mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[i].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
+					mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[j].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
 					}
 					catch (tf2::TransformException &ex)
 					{
@@ -1143,15 +1116,15 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				}
 
 				// Only ask if new object
-				if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
+				if (objMeshMap_.find(furnitureIds[j]) != objMeshMap_.end())
 				{
 					// Mesh URI is already known so get it from the map
-					m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
+					m = shapes::createMeshFromResource(objMeshMap_.at(furnitureIds[j]));
 				}
 				else
 				{
 					// Mesh URI is not known so ask ontologenius for it
-					meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
+					meshTemp = onto_.individuals.getOn(furnitureIds[j],"hasMesh");
 					if(meshTemp.size() > 0)
 					{
 						meshURI = meshTemp[0];
@@ -1163,13 +1136,13 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							meshURI.erase(pos, std::string("string#").length());
 						}
 
-						ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
+						ROS_INFO_STREAM("ObjId is [" << furnitureIds[j] << "]" );
 						ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
 
 						m = shapes::createMeshFromResource(meshURI);
 
 						// And add it to the map
-						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
+						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)furnitureIds[j],(std::string)meshURI));
 					}
 					else
 					{
@@ -1184,45 +1157,137 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				// Add the mesh to the Collision object message
 				collisionObj.meshes.push_back(mesh);
 
-	     		// Set object id
-				collisionObj.id = objIds[i];
+				// Set object id
+				collisionObj.id = furnitureIds[j];
 
-				if(srv.response.poses[i].header.frame_id != "/base_footprint")
+				if(srv.response.poses[j].header.frame_id != "/base_footprint")
 				{
 					// Transform pose given by UWDS from map to basefootprint
-					colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+					colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
 					tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
 					collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
 				}
 				else
 				{
-					collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+					collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
 				}
 
 				// Set frame_id to "base_footprint" as it has been transformed
 				collisionObj.header.frame_id = "base_footprint";
 
-        		collisionObj.operation = collisionObj.ADD;
+				collisionObj.operation = collisionObj.ADD;
 
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
+				ROS_INFO_STREAM("Added to scene");
+			}
+		}
 
-
-
-	 		}
-			else
+		objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
+		// Ask underworld about poses of these ids
+		srv.request.ids = objIds;
+		if (udwClient.call(srv))
+		{
+			for (int i=0; i < objIds.size(); i++)
 			{
-				ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+				// Clear vector to be able to reuse it
+				collisionObj.meshes.clear();
+				collisionObj.mesh_poses.clear();
+
+				// Fill in mesh URI (ask ontology or get it from the cache)
+				//Verify if frame_id isn't empty
+				// UWDS publish with frame_id as /map so transform to base_footprint
+				if(!srv.response.poses[i].header.frame_id.empty())
+				{
+					// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
+					// Will wait for 1 seconds
+					if(srv.response.poses[i].header.frame_id != "/base_footprint")
+					{
+						try
+						{
+						mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[i].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
+						}
+						catch (tf2::TransformException &ex)
+						{
+							ROS_WARN("%s",ex.what());
+							return 1;
+						}
+					}
+
+					// Only ask if new object
+					if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
+					{
+						// Mesh URI is already known so get it from the map
+						m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
+					}
+					else
+					{
+						// Mesh URI is not known so ask ontologenius for it
+						meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
+						if(meshTemp.size() > 0)
+						{
+							meshURI = meshTemp[0];
+
+							size_t pos = meshURI.find("string#");
+							if (pos != std::string::npos)
+							{
+								// If found then erase it from string
+								meshURI.erase(pos, std::string("string#").length());
+							}
+
+							ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
+							ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+
+							m = shapes::createMeshFromResource(meshURI);
+
+							// And add it to the map
+							objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
+						}
+						else
+						{
+							ROS_ERROR_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
+							return 2;
+						}
+					}
+
+					shapes::constructMsgFromShape(m, mesh_msg);
+					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+					// Add the mesh to the Collision object message
+					collisionObj.meshes.push_back(mesh);
+
+					// Set object id
+					collisionObj.id = objIds[i];
+
+					if(srv.response.poses[i].header.frame_id != "/base_footprint")
+					{
+						// Transform pose given by UWDS from map to basefootprint
+						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+						tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
+						collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+					}
+					else
+					{
+						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+					}
+
+					// Set frame_id to "base_footprint" as it has been transformed
+					collisionObj.header.frame_id = "base_footprint";
+
+					collisionObj.operation = collisionObj.ADD;
+
+					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
+					planning_scene_interface_.applyCollisionObject(collisionObj);
+					ROS_INFO_STREAM("Added to scene");
+				}
+				else
+				{
+					ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+				}
 			}
 	 	}
 
 	}
-	else
-	{
-		ROS_ERROR("Failed to call service getPose");
-		return 3;
-	}
-	return 0;
 }
 
 void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat, int& progress)
@@ -1292,7 +1357,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::string armGroup;
 	std::string taskName;
 
-	if((goal->action == "pick") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld"))
+	if((goal->action == "pick") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
 	{
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
@@ -1363,7 +1428,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		if(goal->pose.header.frame_id == "")
 		{
-			/*customPose.header.frame_id = goal->objId;
+			customPose.header.frame_id = goal->objId;
 			customPose.pose.position.x = -0.02;
 			customPose.pose.position.y = 0.0;
 			customPose.pose.position.z = 0.0;
@@ -1382,9 +1447,9 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			customPose.pose.orientation.y = 0.0;
 			customPose.pose.orientation.z = 1.0;
 			customPose.pose.orientation.w = 0.0;
-			customPoses.push_back(customPose);*/
+			customPoses.push_back(customPose);
 
-			customPose.header.frame_id = goal->objId;
+			/*customPose.header.frame_id = goal->objId;
 			customPose.pose.position.x = 0.0;
 			customPose.pose.position.y = 0.0;
 			customPose.pose.position.z = 0.04;
@@ -1392,7 +1457,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			customPose.pose.orientation.y = 0.707;
 			customPose.pose.orientation.z = 0.0;
 			customPose.pose.orientation.w = 0.707;
-			customPoses.push_back(customPose);
+			customPoses.push_back(customPose);*/
 		}
 		else
 		{ 
