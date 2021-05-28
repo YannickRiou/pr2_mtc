@@ -1725,7 +1725,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "pr2_tasks_node");
-	ros::AsyncSpinner spinner(1);
+	ros::AsyncSpinner spinner(2);
 	spinner.start();
 
 	ros::NodeHandle nh("~");
