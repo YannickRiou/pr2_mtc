@@ -1290,33 +1290,15 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	}
 }
 
-void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat, int& progress)
-{
-	progress = (taskStat->stages[0].solved.size()/10.0)*100;
-}
-
-
-void motionPlanning::planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer)
+void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer)
 {
 	pr2_motion_tasks_msgs::planFeedback planFeedback;
 	int progressValue=0;
 
-	std::string statTopic = "/pr2_tasks_node/" + task_id + "/statistics";
-	
-	ros::Subscriber sub = nh_.subscribe<moveit_task_constructor_msgs::TaskStatistics>(statTopic, 10, boost::bind(taskStatisticCallback,_1,boost::ref(progressValue)));
+	progressValue = (taskStat->stages[0].solved.size()/10.0)*100;
 
-	ros::Rate loop_rate(2);
-	while (planServer->isActive())
-	{
-		if(planServer->isPreemptRequested())
-		{
-			lastPlannedTask_->preempt();
-			return;
-		}
-		planFeedback.status = progressValue;
-		planServer->publishFeedback(planFeedback);
-		loop_rate.sleep();
-	}
+	planFeedback.status = progressValue;
+	planServer->publishFeedback(planFeedback);
 }
 
  /**
@@ -1597,7 +1579,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	}
 
 	// Create Thread to handle the feedback process 
-	boost::thread feedbackThread(&motionPlanning::planFeedbackThread, this, taskName, planServer);
+	std::string statTopic = "/pr2_tasks_node/" + taskName + "/statistics";
+	ros::Subscriber sub = nh_.subscribe<moveit_task_constructor_msgs::TaskStatistics>(statTopic, 10, boost::bind(taskStatisticCallback,_1,planServer));
 
 	try
 	{
@@ -1630,7 +1613,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
     // TODO Handle this state
 		ROS_ERROR_STREAM(e);
 	}
-	feedbackThread.join();
 
 }
 
