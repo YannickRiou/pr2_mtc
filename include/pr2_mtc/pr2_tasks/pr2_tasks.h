@@ -86,7 +86,7 @@ using namespace moveit::task_constructor;
 class motionPlanning
 {
     public:
-        explicit motionPlanning();
+        motionPlanning(ros::NodeHandle& nh);
         ~motionPlanning();
 
         void createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, std::vector<geometry_msgs::PoseStamped> placePoses);
@@ -103,13 +103,12 @@ class motionPlanning
 
         void createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId);
 
-        void planFeedbackThread(std::string task_id, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer);
+        void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient);
 
-        int updateWorld(ros::ServiceClient& udwClient);
+        void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher);
 
-        void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient);
+        void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat);
 
-        void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer, ros::Publisher factsPublisher);
 
 
 
@@ -118,7 +117,13 @@ class motionPlanning
 
         // Variable to store the last task that was planned
         // To be able to execute it afterward
-        std::shared_ptr<Task> lastPlannedTask_;
+        std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>> planServer_;
+        std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>> executeServer_;
+
+        // Service to get object pose from underworld
+        ros::ServiceClient getPoseSrv_;
+
+        ros::Publisher facts_pub_;
 
         OntologyManipulator onto_;
 

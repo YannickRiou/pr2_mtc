@@ -12,11 +12,14 @@
 #include <pr2_mtc/pr2_tasks/pr2_tasks.h>
 
 // Class constructor
-motionPlanning::motionPlanning()
-  : onto_(&nh_,"robot"),
+motionPlanning::motionPlanning(ros::NodeHandle& nh)
+  : nh_(nh),
+  	onto_("robot"),
 	robot_model_loader_("robot_description"),
 	transformListenner_(tfBuffer_)
 {
+	ROS_INFO("[Entering class constructor]");
+
 	// Close ontology
 	onto_.close();
 
@@ -41,6 +44,24 @@ motionPlanning::motionPlanning()
 
 	// Create the common planner for gripper open/close movement when creating task with MTC
 	gripper_planner_ = std::make_shared<solvers::JointInterpolationPlanner>();
+
+	getPoseSrv_ = nh_.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
+	ros::service::waitForService("/tag_service/getPose", -1);
+
+	ROS_INFO("[Node connected to getPose service]");
+
+	facts_pub_ = nh_.advertise<pr2_motion_tasks_msgs::RobotAction>("pr2_facts", 1000);
+
+	planServer_ = std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>>(nh_, "plan", boost::bind(&motionPlanning::planCallback,this, _1, getPoseSrv_), false);
+	executeServer_ =  std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>>(nh_, "execute", boost::bind(&motionPlanning::executeCallback,this, _1, facts_pub_), false);
+
+
+	// Action servers for supervisor
+	planServer_->start();
+	executeServer_->start();
+	
+	ROS_INFO("[Plan and execute action servers started successfully]");
+
 }
 
 // Class destructor
@@ -1290,7 +1311,13 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	}
 }
 
-void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat, actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer)
+ /**
+ * \fn void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat)
+ * \brief Callback that is used to send back progress value whem planning for a task
+ *
+ * \param taskStat Pointer to get the number of stages already solved
+ */
+void motionPlanning::taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat)
 {
 	pr2_motion_tasks_msgs::planFeedback planFeedback;
 	int progressValue=0;
@@ -1298,7 +1325,7 @@ void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsCon
 	progressValue = (taskStat->stages[0].solved.size()/10.0)*100;
 
 	planFeedback.status = progressValue;
-	planServer->publishFeedback(planFeedback);
+	planServer_->publishFeedback(planFeedback);
 }
 
  /**
@@ -1318,14 +1345,13 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
 }
 
  /**
- * \fn void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
+ * \fn void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient)
  * \brief Callback that is called when supervisor ask for a plan
  *
  * \param goal Goal sent by supervisor. Contains action to be planned (pick, place, move), planGroup to be used if moving, object if pick, box if place
- * \param planServer Action server handle to be able to send feeback or result to supervisor
  * \param udwClient Service handle to pass on to the update world function
  */
-void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>* planServer, ros::ServiceClient& udwClient)
+void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient)
 {
  	pr2_motion_tasks_msgs::planResult planResult;
 
@@ -1354,7 +1380,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 				{
 					planResult.error_code = -1;
 					ROS_ERROR_STREAM("[Anti-gravity generator enabled]" << goal->objId << " isn't in any box or on top of any surface.");
-					planServer->setAborted(planResult);
+					planServer_->setAborted(planResult);
 					return;
 				}
 			}
@@ -1364,25 +1390,25 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		if(updateWorldResult == 1)
 		{
 			planResult.error_code = -4;
-			planServer->setAborted(planResult);
+			planServer_->setAborted(planResult);
 			return;
 		}
 		else if(updateWorldResult == 2)
 		{
 			planResult.error_code = -5;
-			planServer->setAborted(planResult);
+			planServer_->setAborted(planResult);
 			return;
 		}
 		else if(updateWorldResult == 3)
 		{
 			planResult.error_code = -6;
-			planServer->setAborted(planResult);
+			planServer_->setAborted(planResult);
 			return;
 		}
 		else if (goal->action == "updateWorld")
 		{
 			planResult.error_code = 1;
-			planServer->setSucceeded(planResult);
+			planServer_->setSucceeded(planResult);
 			return;
 		}
 	}
@@ -1580,31 +1606,37 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	// Create Thread to handle the feedback process 
 	std::string statTopic = "/pr2_tasks_node/" + taskName + "/statistics";
-	ros::Subscriber sub = nh_.subscribe<moveit_task_constructor_msgs::TaskStatistics>(statTopic, 10, boost::bind(taskStatisticCallback,_1,planServer));
+	ros::Subscriber sub = nh_.subscribe<moveit_task_constructor_msgs::TaskStatistics>(statTopic, 10, &motionPlanning::taskStatisticCallback, this);
 
 	try
 	{
-		if(lastPlannedTask_->plan(3) && !planServer->isPreemptRequested())
+		ROS_INFO_STREAM("Beginning plan of task [" << taskName << "] !");
+
+		if(lastPlannedTask_->plan(3) && !planServer_->isPreemptRequested())
 		{
+			ROS_INFO_STREAM("Planning of task [" << taskName << "] SUCCEEDED !");
+
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
 			planResult.armUsed = armGroup;
 			pr2_motion_tasks_msgs::planFeedback planFeedback;
 			planFeedback.status = 100;
-			planServer->publishFeedback(planFeedback);
-			planServer->setSucceeded(planResult);
+			planServer_->publishFeedback(planFeedback);
+			planServer_->setSucceeded(planResult);
 		}
 		else
 		{
 			planResult.error_code = -1;
 			
-			if(planServer->isPreemptRequested())
+			if(planServer_->isPreemptRequested())
 			{
-				planServer->setPreempted(planResult);
+				ROS_WARN_STREAM("Planning of task [" << taskName << "] PREEMPTED !");
+				planServer_->setPreempted(planResult);
 			}
 			else
 			{
-				planServer->setAborted(planResult);
+				ROS_WARN_STREAM("Planning of task [" << taskName << "] ABORTED !");
+				planServer_->setAborted(planResult);
 			}
 		}
 	}
@@ -1641,13 +1673,14 @@ void activeCb()
 
 
  /**
- * \fn void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer)
+ * \fn void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  ros::Publisher factsPublisher)
  * \brief Callback that is called when supervisor ask to execute last planned task
  *
  * \param goal Goal sent by supervisor. Void
- * \param executeServer Action server handle to be able to send feeback or result to supervisor
+ * \param factsPublisher Publisher to send information on action that has been executed (pick cube, place, etc.)
+
  */
-void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal,  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>* executeServer, ros::Publisher factsPublisher)
+void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher)
 {
 	pr2_motion_tasks_msgs::executeFeedback executeFeedback;
   	pr2_motion_tasks_msgs::executeResult executeResult;
@@ -1672,6 +1705,8 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		factStampedMsg_.stamp = ros::Time::now();
 		factsPublisher.publish(factStampedMsg_);
 
+		ROS_INFO_STREAM("Sending goal to execute the previous task");
+
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
 		executeFeedback.action_start = ros::Time::now();
 		int dummyProgress = 0;
@@ -1680,8 +1715,8 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		{
 			executeFeedback.status = dummyProgress;
 			dummyProgress++;
-			executeServer->publishFeedback(executeFeedback);
-			if(executeServer->isPreemptRequested())
+			executeServer_->publishFeedback(executeFeedback);
+			if(executeServer_->isPreemptRequested())
 			{
 				executeTask.cancelGoal();
 			}
@@ -1697,13 +1732,13 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 
 			executeResult.error_code = -2;
 
-			if(executeServer->isPreemptRequested())
+			if(executeServer_->isPreemptRequested())
 			{
-				executeServer->setPreempted(executeResult);
+				executeServer_->setPreempted(executeResult);
 			}
 			else
 			{
-				executeServer->setAborted(executeResult);
+				executeServer_->setAborted(executeResult);
 			}
 			
 		}
@@ -1711,13 +1746,14 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		{
 			executeResult.error_code = 1;
 			executeResult.action_end = ros::Time::now();
-			executeServer->setSucceeded(executeResult);
+			executeServer_->setSucceeded(executeResult);
+			ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
 		}
 	}
 	else
 	{
 		executeResult.error_code = -3;
-		executeServer->setAborted(executeResult);
+		executeServer_->setAborted(executeResult);
 	}
 }
 
@@ -1731,23 +1767,7 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh("~");
 	ros::Rate r(10); // 10 hz+
 
-	motionPlanning pr2Motion;
-
-	// Service to get object pose from underworld
-	ros::ServiceClient getPoseSrv = nh.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
-	ros::service::waitForService("/tag_service/getPose", -1);
-
-  ros::Publisher facts_pub = nh.advertise<pr2_motion_tasks_msgs::RobotAction>("pr2_facts", 1000);
-
-	// Action servers for supervisor
-  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction> planServer(nh, "plan", boost::bind(&motionPlanning::planCallback, &pr2Motion, _1, &planServer, getPoseSrv), false);
-	planServer.start();
-
-  actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction> executeServer(nh, "execute", boost::bind(&motionPlanning::executeCallback, &pr2Motion, _1, &executeServer, facts_pub), false);
-	executeServer.start();
-
-	pr2Motion.updateWorld(getPoseSrv);
-
+	motionPlanning pr2Motion(nh);
 
 	ROS_ERROR("STARTED ACTION SERVS");
 
