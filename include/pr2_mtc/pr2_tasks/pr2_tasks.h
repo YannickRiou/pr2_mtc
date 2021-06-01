@@ -89,19 +89,21 @@ class motionPlanning
         motionPlanning(ros::NodeHandle& nh);
         ~motionPlanning();
 
-        void createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, std::vector<geometry_msgs::PoseStamped> placePoses);
+        void createPlaceTask(std::unique_ptr<moveit::task_constructor::Task>& placeTask, const std::string planGroup, const std::string object, std::vector<geometry_msgs::PoseStamped> placePoses);
 
-        void createMoveTask(Task &moveTask, const std::string planGroup, const geometry_msgs::PoseStamped moveToPose);
+        void createMoveTask(std::unique_ptr<moveit::task_constructor::Task>& moveTask, const std::string planGroup, const geometry_msgs::PoseStamped moveToPose);
 
-        void createMovePredefinedTask(Task &moveTask, const std::string planGroup,const std::string pose_id);
+        void createMovePredefinedTask(std::unique_ptr<moveit::task_constructor::Task>& moveTask, const std::string planGroup,const std::string pose_id);
 
-        void createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
+        void createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
 
-        void createPickTaskCustomDual(Task &pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second);
+        void createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second);
 
-        void createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
+        void createPickTask(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
 
-        void createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId);
+        void createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId);
+
+        int updateWorld(ros::ServiceClient& udwClient);
 
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient);
 
@@ -117,6 +119,8 @@ class motionPlanning
 
         // Variable to store the last task that was planned
         // To be able to execute it afterward
+        std::unique_ptr<Task> lastPlannedTask_;
+
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>> planServer_;
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>> executeServer_;
 

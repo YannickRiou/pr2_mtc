@@ -78,14 +78,14 @@ motionPlanning::~motionPlanning()
  * \param object Object to be placed (it needs to be already attached to the eef of the associated planGroup)
  * \param placePose Pose where to place the object
  */
-void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGroup, const std::string object, std::vector<geometry_msgs::PoseStamped> placePoses)
+void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::Task>& placeTask, const std::string planGroup, const std::string object, std::vector<geometry_msgs::PoseStamped> placePoses)
 {
-	placeTask.setRobotModel(kinematic_model_);
+	placeTask->setRobotModel(kinematic_model_);
 
 	// Property and variable definitions
 	std::string ungrasp;
 
-	placeTask.setProperty("object",object);
+	placeTask->setProperty("object",object);
 
 	moveit_msgs::Constraints upright_constraint;
 	upright_constraint.name = "gripper_upright";
@@ -103,8 +103,8 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 
 	if(planGroup == "left_arm")
 	{
-		placeTask.setProperty("group",planGroup);
-		placeTask.setProperty("eef","left_gripper");
+		placeTask->setProperty("group",planGroup);
+		placeTask->setProperty("eef","left_gripper");
 	    eef_ = "left_gripper";
 		ikFrame_ = "l_gripper_tool_frame";
 		ungrasp = "left_open";
@@ -114,8 +114,8 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	}
 	else if(planGroup == "right_arm")
 	{
-		placeTask.setProperty("group",planGroup);
-		placeTask.setProperty("eef","right_gripper");
+		placeTask->setProperty("group",planGroup);
+		placeTask->setProperty("eef","right_gripper");
 		eef_ = "right_gripper";
 		ikFrame_ = "r_gripper_tool_frame";
 		ungrasp = "right_open";
@@ -127,7 +127,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	// Increase precision for place to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
-	placeTask.setProperty("ik_frame",ikFrame_);
+	placeTask->setProperty("ik_frame",ikFrame_);
 
 	pipelinePlanner_->setPlannerId(PLANNER);
 
@@ -136,8 +136,8 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
 	// Copy properties defined for placeTask to initial stages (then it will be possible to get them into other stages)
-	placeTask.properties().exposeTo(initial->properties(), { "eef", "group","ik_frame" });
-	placeTask.add(std::move(initial));
+	placeTask->properties().exposeTo(initial->properties(), { "eef", "group","ik_frame" });
+	placeTask->add(std::move(initial));
 
 	{
 		// connect to place
@@ -146,13 +146,13 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 		connect->properties().configureInitFrom(Stage::PARENT);
 		connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
-		placeTask.add(std::move(connect));
+		placeTask->add(std::move(connect));
 	}
 
 	{
 		auto place = std::make_unique<SerialContainer>("place object");
 
-		placeTask.properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
+		placeTask->properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
 		place->properties().configureInitFrom(Stage::PARENT, {"eef", "group", "ik_frame"});
 
 		// Temporary set an approach stage to avoid solutions with collisions
@@ -229,7 +229,7 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
 			stage->setDirection(vec);
 			place->insert(std::move(stage));
 		}
-		placeTask.add(std::move(place));
+		placeTask->add(std::move(place));
 
 	}
 }
@@ -242,9 +242,9 @@ void motionPlanning::createPlaceTask(Task &placeTask, const std::string planGrou
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param moveToPose Pose where to place the frame (r_gripper_tool_frame or l_gripper_tool_frame depending on planGroup)
  */
-void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,const geometry_msgs::PoseStamped moveToPose)
+void motionPlanning::createMoveTask(std::unique_ptr<moveit::task_constructor::Task>&moveTask, const std::string planGroup,const geometry_msgs::PoseStamped moveToPose)
 {
-	moveTask.setRobotModel(kinematic_model_);
+	moveTask->setRobotModel(kinematic_model_);
 
 	if(planGroup == "left_arm")
 	{
@@ -261,14 +261,14 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	moveTask.add(std::move(initial));
+	moveTask->add(std::move(initial));
 
 	{
 		// connect
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		moveTask.add(std::move(connect));
+		moveTask->add(std::move(connect));
 	}
 
 	{
@@ -284,7 +284,7 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
-		moveTask.add(std::move(wrapper));
+		moveTask->add(std::move(wrapper));
 	}
 }
 
@@ -296,9 +296,9 @@ void motionPlanning::createMoveTask(Task &moveTask, const std::string planGroup,
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param pose_id Id of the pose
  */
-void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string planGroup,const std::string pose_id)
+void motionPlanning::createMovePredefinedTask(std::unique_ptr<moveit::task_constructor::Task>&moveTask, const std::string planGroup,const std::string pose_id)
 {
-	moveTask.setRobotModel(kinematic_model_);
+	moveTask->setRobotModel(kinematic_model_);
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 	pipelinePlanner_->setPlannerId(PLANNER);
@@ -307,13 +307,13 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	moveTask.add(std::move(initial));
+	moveTask->add(std::move(initial));
 
 	{
 		auto stage = std::make_unique<stages::MoveTo>("Move to pre-defined pose", pipelinePlanner_);
 		stage->setGroup(planGroup);
 		stage->setGoal(pose_id);
-		moveTask.add(std::move(stage));
+		moveTask->add(std::move(stage));
 	}
 
 }
@@ -326,9 +326,9 @@ void motionPlanning::createMovePredefinedTask(Task &moveTask, const std::string 
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to be droped (it needs to be already attached to the eef of the associated planGroup)
  */
-void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,const std::string object, const std::string boxId)
+void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId)
 {
-	dropTask.setRobotModel(kinematic_model_);
+	dropTask->setRobotModel(kinematic_model_);
 
 	std::string ungrasp;
 
@@ -383,7 +383,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	dropTask.add(std::move(initial));
+	dropTask->add(std::move(initial));
 
 	{
 		// connect
@@ -391,7 +391,7 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->properties().configureInitFrom(Stage::PARENT);
-		dropTask.add(std::move(connect));
+		dropTask->add(std::move(connect));
 	}
 
 	{
@@ -407,20 +407,20 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
-		dropTask.add(std::move(wrapper));
+		dropTask->add(std::move(wrapper));
 	}
 
 	{
 		auto stage = std::make_unique<stages::MoveTo>("release object", gripper_planner_);
 		stage->setGroup(eef_);
 		stage->setGoal(ungrasp);
-		dropTask.add(std::move(stage));
+		dropTask->add(std::move(stage));
 	}
 
 	{
 		auto stage = std::make_unique<stages::ModifyPlanningScene>("detach object");
 		stage->detachObject(object, ikFrame_);
-		dropTask.add(std::move(stage));
+		dropTask->add(std::move(stage));
 	}
 
 }
@@ -434,9 +434,9 @@ void motionPlanning::createDropTask(Task &dropTask, const std::string planGroup,
  * \param object Object to pick
  * \param graspPose Grasp pose to be used when picking the object
  */
-void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses)
+void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses)
 {
-	pickTask.setRobotModel(kinematic_model_);
+	pickTask->setRobotModel(kinematic_model_);
 
 	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
 
@@ -458,12 +458,12 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	c.absolute_z_axis_tolerance= 0.785;
 	c.weight= 1.0;
 
-	pickTask.setProperty("object",object);
+	pickTask->setProperty("object",object);
 
 	if(planGroup == "left_arm")
 	{
-		pickTask.setProperty("group",planGroup);
-		pickTask.setProperty("eef","left_gripper");
+		pickTask->setProperty("group",planGroup);
+		pickTask->setProperty("eef","left_gripper");
 	    eef_ = "left_gripper";
 		pregrasp = "left_open";
 		postgrasp = "left_close";
@@ -473,8 +473,8 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	}
 	else if(planGroup == "right_arm")
 	{
-		pickTask.setProperty("group",planGroup);
-		pickTask.setProperty("eef","right_gripper");
+		pickTask->setProperty("group",planGroup);
+		pickTask->setProperty("eef","right_gripper");
 		eef_ = "right_gripper";
 		pregrasp = "right_open";
 		postgrasp = "right_close";
@@ -490,7 +490,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	pickTask.add(std::move(initial));
+	pickTask->add(std::move(initial));
 
 
 	// ---------------------- open Hand ---------------------- //
@@ -499,7 +499,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		stage->setGroup(eef_);
 		stage->setGoal(pregrasp);
 		current_state = stage.get();
-		pickTask.add(std::move(stage));
+		pickTask->add(std::move(stage));
 	}
 
 	{
@@ -510,13 +510,13 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->setTimeout(10.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		pickTask.add(std::move(connect));
+		pickTask->add(std::move(connect));
 	}
 
 	{
 		auto grasp = std::make_unique<SerialContainer>("pick object");
 
-		pickTask.properties().exposeTo(grasp->properties(), { "eef", "group"});
+		pickTask->properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
 		// TODO TEST WITH THIS
@@ -556,7 +556,7 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 		// ---------------------- Allow Collision (hand object) ---------------------- //
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object)");
-			stage->allowCollisions(object, pickTask.getRobotModel()->getJointModelGroup(eef_)->getLinkModelNamesWithCollisionGeometry(),true);
+			stage->allowCollisions(object, pickTask->getRobotModel()->getJointModelGroup(eef_)->getLinkModelNamesWithCollisionGeometry(),true);
 			grasp->insert(std::move(stage));
 		}
 
@@ -622,14 +622,14 @@ void motionPlanning::createPickTaskCustom(Task &pickTask, const std::string plan
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
 		}
-		pickTask.add(std::move(grasp));
+		pickTask->add(std::move(grasp));
 	}
 
 }
 
-void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second)
+void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second)
 {
-	pickTask.setRobotModel(kinematic_model_);
+	pickTask->setRobotModel(kinematic_model_);
 
 	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
 
@@ -640,10 +640,10 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	std::string second_pregrasp;
 	std::string second_postgrasp;
 
-	pickTask.setProperty("object",object);
+	pickTask->setProperty("object",object);
 	if(planGroup_first == "left_arm")
 	{
-		pickTask.setProperty("eef","left_gripper");
+		pickTask->setProperty("eef","left_gripper");
 		first_eef_ = "left_gripper";
 		first_pregrasp = "left_open";
 		first_postgrasp = "left_close";
@@ -651,7 +651,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	}
 	else if(planGroup_first == "right_arm")
 	{
-		pickTask.setProperty("eef","right_gripper");
+		pickTask->setProperty("eef","right_gripper");
 		first_eef_ = "right_gripper";
 		first_pregrasp = "right_open";
 		first_postgrasp = "right_close";
@@ -659,7 +659,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	}
 	
 
-	pickTask.setProperty("group",planGroup_first);
+	pickTask->setProperty("group",planGroup_first);
 
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
 	pipelinePlanner_->setPlannerId(PLANNER);
@@ -671,7 +671,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	pickTask.add(std::move(initial));
+	pickTask->add(std::move(initial));
 
 
 	// ---------------------- open Hand ---------------------- //
@@ -680,7 +680,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		stage->setGroup(first_eef_);
 		stage->setGoal(first_pregrasp);
 		current_state = stage.get();
-		pickTask.add(std::move(stage));
+		pickTask->add(std::move(stage));
 	}
 
 	{
@@ -690,13 +690,13 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->setTimeout(10.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		pickTask.add(std::move(connect));
+		pickTask->add(std::move(connect));
 	}
 
 	{
 		auto grasp = std::make_unique<SerialContainer>("pick object first arm");
 
-		pickTask.properties().exposeTo(grasp->properties(), { "eef", "group"});
+		pickTask->properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
 		// TODO TEST WITH THIS
@@ -736,7 +736,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		// ---------------------- Allow Collision (hand object) ---------------------- //
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object)");
-			stage->allowCollisions(object, pickTask.getRobotModel()->getJointModelGroup(first_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
+			stage->allowCollisions(object, pickTask->getRobotModel()->getJointModelGroup(first_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
 			grasp->insert(std::move(stage));
 		}
 
@@ -748,12 +748,12 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			grasp->insert(std::move(stage));
 		}
 
-		pickTask.add(std::move(grasp));
+		pickTask->add(std::move(grasp));
 	}
 
 	if(planGroup_second == "left_arm")
 	{
-		pickTask.setProperty("eef","left_gripper");
+		pickTask->setProperty("eef","left_gripper");
 		second_eef_ = "left_gripper";
 		second_pregrasp = "left_open";
 		second_postgrasp = "left_close";
@@ -761,14 +761,14 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 	}
 	else if(planGroup_second == "right_arm")
 	{
-		pickTask.setProperty("eef","right_gripper");
+		pickTask->setProperty("eef","right_gripper");
 		second_eef_ = "right_gripper";
 		second_pregrasp = "right_open";
 		second_postgrasp = "right_close";
 		second_ikFrame_ = "r_gripper_tool_frame";
 	}
 
-	pickTask.setProperty("group",planGroup_second);
+	pickTask->setProperty("group",planGroup_second);
 
 	
 
@@ -778,7 +778,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		stage->setGroup(second_eef_);
 		stage->setGoal(second_pregrasp);
 		current_state = stage.get();
-		pickTask.add(std::move(stage));
+		pickTask->add(std::move(stage));
 	}
 
 
@@ -788,7 +788,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		connect->setTimeout(10.0);
-		pickTask.add(std::move(connect));
+		pickTask->add(std::move(connect));
 	}
 	
 	{
@@ -834,7 +834,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 		// ---------------------- Allow Collision (hand object) ---------------------- //
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object) second arm");
-			stage->allowCollisions(object, pickTask.getRobotModel()->getJointModelGroup(second_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
+			stage->allowCollisions(object, pickTask->getRobotModel()->getJointModelGroup(second_eef_)->getLinkModelNamesWithCollisionGeometry(),true);
 			grasp->insert(std::move(stage));
 		}
 
@@ -860,7 +860,7 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
 			grasp->insert(std::move(stage));
 		}
 		
-		pickTask.add(std::move(grasp));
+		pickTask->add(std::move(grasp));
 	}
 }
 
@@ -872,31 +872,31 @@ void motionPlanning::createPickTaskCustomDual(Task &pickTask, const std::string 
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to pick
  */
-void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId)
+void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId)
 {
-	pickTask.setRobotModel(kinematic_model_);
+	pickTask->setRobotModel(kinematic_model_);
 
 	// Property and variable definitions
 	std::string pregrasp;
 	std::string grasp;
 
-	pickTask.setProperty("object",object);
+	pickTask->setProperty("object",object);
 
 	if(planGroup == "left_arm")
 	{
-		pickTask.setProperty("group",planGroup);
+		pickTask->setProperty("group",planGroup);
 		pregrasp = "left_open";
 		grasp = "left_close";
-		pickTask.setProperty("eef","left_gripper");
+		pickTask->setProperty("eef","left_gripper");
 	 	eef_ = "left_gripper";
 		ikFrame_ = "l_gripper_tool_frame";
 	}
 	else if(planGroup == "right_arm")
 	{
-		pickTask.setProperty("group",planGroup);
+		pickTask->setProperty("group",planGroup);
 		pregrasp = "right_open";
 		grasp = "right_close";
-		pickTask.setProperty("eef","right_gripper");
+		pickTask->setProperty("eef","right_gripper");
 		eef_ = "right_gripper";
 		ikFrame_ = "r_gripper_tool_frame";
 	}
@@ -908,19 +908,19 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
 	current_state = initial.get();
-	pickTask.add(std::move(initial));
+	pickTask->add(std::move(initial));
 
 	{
 		// connect to pick
 		stages::Connect::GroupPlannerVector planners = {{eef_, pipelinePlanner_}, {planGroup, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		pickTask.add(std::move(connect));
+		pickTask->add(std::move(connect));
 	}
 
 	{
 		auto pick = std::make_unique<SerialContainer>("pick object");
-		pickTask.properties().exposeTo(pick->properties(), { "eef", "group"});
+		pickTask->properties().exposeTo(pick->properties(), { "eef", "group"});
 		pick->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
 		/****************************************************
@@ -970,7 +970,7 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (hand,object)");
 			stage->allowCollisions(
-			    object, pickTask.getRobotModel()->getJointModelGroup(eef_)->getLinkModelNamesWithCollisionGeometry(),
+			    object, pickTask->getRobotModel()->getJointModelGroup(eef_)->getLinkModelNamesWithCollisionGeometry(),
 			    true);
 			pick->insert(std::move(stage));
 		}
@@ -1044,7 +1044,7 @@ void motionPlanning::createPickTask(Task &pickTask, const std::string planGroup,
 		}
 
 		// Add grasp container to task
-		pickTask.add(std::move(pick));
+		pickTask->add(std::move(pick));
 	}
 }
 
@@ -1431,6 +1431,9 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		armGroup = goal->planGroup;
 	}
 
+	// reset to avoid problem on introspection
+	lastPlannedTask_.reset();
+
 	//====== PICK ======//
 	if(goal->action == "pick")
 	{
@@ -1480,8 +1483,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		factStampedMsg_.arm = armGroup;
 
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		createPickTaskCustom(*lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		createPickTaskCustom(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickDual")
 	{
@@ -1515,8 +1518,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		factStampedMsg_.arm = armGroup;
 
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		createPickTaskCustomDual(*lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		createPickTaskCustomDual(lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
 	}
 	else if(goal->action == "pickAuto")
 	{
@@ -1528,8 +1531,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		factStampedMsg_.arm = armGroup;
 
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
-		createPickTask(*lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0]);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		createPickTask(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0]);
 	}
 	//====== PLACE ======//
 	else if(goal->action == "place")
@@ -1564,24 +1567,24 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		factStampedMsg_.arm = armGroup;
 
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
-		createPlaceTask(*lastPlannedTask_, armGroup, goal->objId, customPoses);
+		createPlaceTask(lastPlannedTask_, armGroup, goal->objId, customPoses);
 	}
 	//====== MOVE ======//
 	else if (goal->action == "move")
 	{
 		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
 		if(goal->predefined_pose_id.empty())
 		{
-			createMoveTask(*lastPlannedTask_, armGroup,goal->pose);
+			createMoveTask(lastPlannedTask_, armGroup,goal->pose);
 		}
 		else
 		{
-			createMovePredefinedTask(*lastPlannedTask_, armGroup,goal->predefined_pose_id);
+			createMovePredefinedTask(lastPlannedTask_, armGroup,goal->predefined_pose_id);
 		}
 	}
 	//====== DROP ======//
@@ -1589,17 +1592,18 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
-		lastPlannedTask_ = std::make_shared<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
 		factStampedMsg_.action = factStampedMsg_.DROP;
 		factStampedMsg_.objId = goal->objId;
 		factStampedMsg_.boxId = goal->boxId;
 		factStampedMsg_.arm = armGroup;
 
-		createDropTask(*lastPlannedTask_, armGroup,goal->objId, goal->boxId);
+		createDropTask(lastPlannedTask_, armGroup,goal->objId, goal->boxId);
 	}
 	else
 	{
+		ROS_ERROR_STREAM("Unknown action provided. Available action are pick, pickDual, move, drop, place");
 		// TODO handle this case
 		return;
 	}
@@ -1696,7 +1700,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	if(lastPlannedTask_->solutions().size() > 0)
 	{
     // TODO Check that this works
-		ROS_INFO_STREAM("Executing solution trajectory of " << lastPlannedTask_->id());
+		//ROS_INFO_STREAM("Executing solution trajectory of " << lastPlannedTask_->ns());
 
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
@@ -1752,6 +1756,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	}
 	else
 	{
+		ROS_WARN_STREAM("Execution of task failed because the last planned task had no solution !");
 		executeResult.error_code = -3;
 		executeServer_->setAborted(executeResult);
 	}
