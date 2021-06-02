@@ -11,9 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning_interface
   moveit_task_constructor_core
   moveit_msgs
+  geometry_msgs
   dt_resources
   roscpp
   rospy
+  base_nav
+  move_group_x
+  dual_arm_manipulation
   rviz_marker_tools
   ontologenius
   pr2_motion_tasks_msgs
@@ -59,8 +63,6 @@ find_package(catkin REQUIRED COMPONENTS
 #   Message2.msg
 # )
 
-
-
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
@@ -93,7 +95,6 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES pr2_mtc
-#  CATKIN_DEPENDS eigen_conversions moveit_ros_planning_interface moveit_task_constructor_core roscpp rospy rviz_marker_tools std_msgs
 #  DEPENDS system_lib
 )
 
