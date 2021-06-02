@@ -404,9 +404,62 @@ pr2_motion_tasks_msgs::planGoal planGoal;
   }
 }
 
+void pick_loop(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>& planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
+{
+  pr2_motion_tasks_msgs::planGoal planGoal;
+  pr2_motion_tasks_msgs::executeGoal executeGoal;
 
+  ROS_INFO("Waiting for action server to start.");
+  // wait for the action server to start
+  planClient.waitForServer(); //will wait for infinite time
+  executeClient.waitForServer(); //will wait for infinite time  
 
-void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<base_nav::DockAction>& dockClient)
+  for(int i =0; i=10;i++)
+  {
+    planGoal.planGroup = "left_arm";
+    planGoal.objId = "cube_GBCG";
+    planGoal.action = "pick";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+
+    planGoal.planGroup = "left_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "left_arm_home";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+    executeClient.sendGoal(executeGoal);
+    executeClient.waitForResult();
+
+    planGoal.planGroup = "left_arm";
+    planGoal.objId = "cube_GBCG";
+    planGoal.boxId = "box_C3";
+    planGoal.action = "place";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+
+    if(planClient.getResult()->error_code == 1)
+    {
+      executeClient.sendGoal(executeGoal);
+      executeClient.waitForResult();
+    }
+
+    planGoal.planGroup = "left_arm";
+    planGoal.action = "move";
+    planGoal.predefined_pose_id = "left_arm_home";
+    planClient.sendGoal(planGoal);
+    planClient.waitForResult();
+    executeClient.sendGoal(executeGoal);
+    executeClient.waitForResult();
+  }
+}
+
+void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient)
 {
   pr2_motion_tasks_msgs::planGoal planGoal;
   pr2_motion_tasks_msgs::executeGoal executeGoal;
@@ -461,13 +514,9 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
 
-  ROS_WARN_STREAM("Sending GOAL TO DOCK");
-  dockClient.sendGoal(dockGoal);
-  dockClient.waitForResult();
-
   //waitUser("To pick cube");
 
-  //lookAt("cube_GBCG",0,0,0);
+  lookAt("cube_GBCG",0,0,0);
 
   planGoal.planGroup = "left_arm";
   planGoal.objId = "cube_GBCG";
@@ -503,7 +552,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   executeClient.sendGoal(executeGoal);
   executeClient.waitForResult();
  
-  //lookAt("cube_GBTG_2",0,0,0);
+  lookAt("cube_GBTG_2",0,0,0);
   planGoal.planGroup = "right_arm";
   planGoal.objId = "cube_GBTG_2";
   planGoal.action = "pick";
@@ -560,10 +609,6 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
-
-  ROS_WARN_STREAM("Sending GOAL TO DOCK");
-  dockClient.sendGoal(dockGoal);
-  dockClient.waitForResult();
 
   lookAt("throw_box_pink",0,0,0);
   planGoal.planGroup = "left_arm";
@@ -737,10 +782,6 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
 
-  ROS_WARN_STREAM("Sending GOAL TO DOCK");
-  dockClient.sendGoal(dockGoal);
-  dockClient.waitForResult();
-
   //waitUser("To place the box with the both arm");
 
   // dual Arm place 
@@ -763,6 +804,14 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   setPosePosition(loc.place_pose.pose, 0.0, 0.0, 0.10);
   setPoseRPY(loc.place_pose.pose, 0, 0., 0.);
   loc.frame_to_place = "throw_box_pink";
+
+  loc.user_goal_constr.joint_constraints.resize(1);
+  moveit_msgs::JointConstraint& jc = loc.user_goal_constr.joint_constraints[0];
+  jc.joint_name = "l_wrist_flex_joint";
+  jc.position = -1.27;
+  jc.tolerance_below = 0.1;
+  jc.tolerance_above = 0.1;
+  jc.weight = 1.;
 
   // Set the start translation of the left gripper (as frame_to_place is the left gripper tool frame).
   // In some case the part can be in a support (slot) and this starting translation allows to extract the part from this support.
@@ -828,15 +877,16 @@ int main(int argc, char **argv)
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
   navTo.waitForServer();
 
-  actionlib::SimpleActionClient<base_nav::DockAction> dockTo("/docking_node/dock", true);
-  dockTo.waitForServer();
 
   geometry_msgs::PoseStamped goalPose;
   //ros::Subscriber moveBasePoseGoalSub = n.subscribe<geometry_msgs::PoseStamped>("/move_base/current_goal", 1,boost::bind(&moveBasePoseCallback,_1,&dockTo, &navTo));
   //ros::Duration(2).sleep(); 
   //home_body(plan,execute);
 
-  scenario_dual_arm(plan,execute,navTo,dockTo);
+
+  scenario_dual_arm(plan,execute,navTo);
+  //pick_loop(plan,execute);
+  
   //scenario_replace_2(plan,execute);
 
   /*move_base_msgs::MoveBaseGoal navToGoal;
