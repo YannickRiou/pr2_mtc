@@ -1411,6 +1411,30 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			planServer_->setSucceeded(planResult);
 			return;
 		}
+
+		if((goal->action == "pickDual"))
+		{
+			// check if objId is a box. If we want to pick a box, we need to delete temporarily the object that are inside
+			if(onto_.individuals.isA(goal->objId,"Box"))
+			{
+				// the object we are trying to pick is a box, delete all object that are inside it
+				objInBoxIds = onto_.individuals.getFrom("isIn",goal->objId);
+
+				if(objInBoxIds.size() != 0)
+				{
+					ROS_ERROR_STREAM("--===============[There is " << objInBoxIds.size() << " object in " << goal->objId << " . Deleting them before planning pick]==================--");
+					
+					for (int i =0; i < objInBoxIds.size(); i++)
+					{
+						ROS_WARN_STREAM("--=================== DELETING [" << objInBoxIds[i] << "] from the scene ===================--");
+
+						collisionObj.id = objInBoxIds[i];
+						collisionObj.operation = collisionObj.REMOVE;
+						planning_scene_interface_.applyCollisionObject(collisionObj);
+					}
+				}
+			} 
+		}
 	}
 
 	if(goal->planGroup.empty())
