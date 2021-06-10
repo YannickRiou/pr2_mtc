@@ -23,8 +23,7 @@
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <move_base_msgs/MoveBaseAction.h>
 
-#include <base_nav/DockAction.h>
-
+#include <dt_head_gestures/HeadScanAction.h>
 
 void lookAt(std::string frame_id, double x, double y, double z)
 {
@@ -459,7 +458,7 @@ void pick_loop(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>&
   }
 }
 
-void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient)
+void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction>& headScan)
 {
   pr2_motion_tasks_msgs::planGoal planGoal;
   pr2_motion_tasks_msgs::executeGoal executeGoal;
@@ -472,7 +471,8 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   move_base_msgs::MoveBaseGoal navToGoal;
 
-  base_nav::DockGoal dockGoal;
+  dt_head_gestures::HeadScanGoal headGoal;
+
 
   std::vector<moveit_msgs::RobotTrajectory> trajectories;
   dual_arm_msgs::DualArmPlaceLocation loc;
@@ -490,31 +490,61 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   ROS_INFO("Server started successfully");
 
 
+  planGoal.planGroup = "arms";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "arms_home_compact";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+
  // waitUser("To move in front of table 1");
 
   navToGoal.target_pose.header.frame_id = "table_2";
   navToGoal.target_pose.pose.position.x = 0.0;
-  navToGoal.target_pose.pose.position.y = -0.80;
+  navToGoal.target_pose.pose.position.y = -0.90;
   navToGoal.target_pose.pose.position.z = 0.0;
   navToGoal.target_pose.pose.orientation.x = 0.0;
   navToGoal.target_pose.pose.orientation.y = 0.00;
   navToGoal.target_pose.pose.orientation.z = 0.707;
   navToGoal.target_pose.pose.orientation.w = 0.707;
 
-  try{
-   tfBuffer.canTransform("map", "table_2",timeZero, ros::Duration(5.0));
-   transform = tfBuffer.lookupTransform("map", "table_2", timeZero);
-   tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-    ros::Duration(1.0).sleep();
-  }
+  // try{
+  //  tfBuffer.canTransform("map", "table_2",timeZero, ros::Duration(5.0));
+  //  transform = tfBuffer.lookupTransform("map", "table_2", timeZero);
+  //  tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
+  // }
+  // catch (tf2::TransformException &ex) {
+  //   ROS_WARN("%s",ex.what());
+  //   ros::Duration(1.0).sleep();
+  // }
 
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
+  
+  
+
+  planGoal.planGroup = "arms";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "arms_home";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
 
   //waitUser("To pick cube");
+
+  headGoal.central_point.header.frame_id = "base_footprint";
+  headGoal.central_point.point.x = 0.7;
+  headGoal.central_point.point.y = 0;
+  headGoal.central_point.point.z = 0.45;
+  headGoal.height = 0.2;
+  headGoal.width = 0.5;
+  headGoal.step_length = 0.1;
+  headGoal.duration_per_point.data.sec = 1.8;
+  headScan.sendGoal(headGoal);
+  headScan.waitForResult();
 
   lookAt("cube_GBCG",0,0,0);
 
@@ -582,33 +612,56 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   planGoal.planGroup = "arms";
   planGoal.action = "move";
-  planGoal.predefined_pose_id = "arms_home";
+  planGoal.predefined_pose_id = "arms_home_compact";
   planClient.sendGoal(planGoal);
   planClient.waitForResult();
   executeClient.sendGoal(executeGoal);
   executeClient.waitForResult();        
 
+  
+
   navToGoal.target_pose.header.frame_id = "table_lack";
   navToGoal.target_pose.pose.position.x = 0.0;
-  navToGoal.target_pose.pose.position.y = -0.60;
+  navToGoal.target_pose.pose.position.y = -0.70;
   navToGoal.target_pose.pose.position.z = 0.0;
   navToGoal.target_pose.pose.orientation.x = 0.0;
   navToGoal.target_pose.pose.orientation.y = 0.00;
   navToGoal.target_pose.pose.orientation.z = 0.707;
   navToGoal.target_pose.pose.orientation.w = 0.707;
 
-   try{
-   tfBuffer.canTransform("map", "table_lack",timeZero, ros::Duration(5.0));
-   transform = tfBuffer.lookupTransform("map", "table_lack", timeZero);
-   tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-    ros::Duration(1.0).sleep();
-  }
+  //  try{
+  //  tfBuffer.canTransform("map", "table_lack",timeZero, ros::Duration(5.0));
+  //  transform = tfBuffer.lookupTransform("map", "table_lack", timeZero);
+  //  tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
+  // }
+  // catch (tf2::TransformException &ex) {
+  //   ROS_WARN("%s",ex.what());
+  //   ros::Duration(1.0).sleep();
+  // }
 
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
+
+  
+  planGoal.planGroup = "arms";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "arms_home";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+   
+
+  headGoal.central_point.header.frame_id = "base_footprint";
+  headGoal.central_point.point.x = 1.2;
+  headGoal.central_point.point.y = 0;
+  headGoal.central_point.point.z = 0.3;
+  headGoal.height = 0.3;
+  headGoal.width = 0.5;
+  headGoal.step_length = 0.1;
+  headGoal.duration_per_point.data.sec = 1.8;
+  headScan.sendGoal(headGoal);
+  headScan.waitForResult();
 
   lookAt("throw_box_pink",0,0,0);
   planGoal.planGroup = "left_arm";
@@ -688,7 +741,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   executeClient.waitForResult();
 
 
-  //waitUser("To pick the box with the both arm");*/
+  //waitUser("To pick the box with the both arm");
 
   // dual arm pick 
   lookAt("throw_box_pink",0,0,0);
@@ -728,6 +781,21 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
     else
       return;
   }
+
+
+
+  // Specifiy the desired value of the torso for the goal state.
+  loc.user_goal_constr.joint_constraints.resize(2);
+
+  moveit_msgs::JointConstraint& jc_torso = loc.user_goal_constr.joint_constraints[0];
+  jc_torso.joint_name = "torso_lift_joint";
+  jc_torso.position = 0.15;
+  jc_torso.tolerance_below = 0.1;
+  jc_torso.tolerance_above = 0.1;
+  jc_torso.weight = 1.;
+
+  //waitUser("To verify if cubes are in the box");
+
 
   // dual Arm place 
   arms_torso.setPlannerId("RRTConnectkConfigDualArm");
@@ -769,15 +837,15 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   navToGoal.target_pose.pose.orientation.z = 0.707;
   navToGoal.target_pose.pose.orientation.w = 0.707;
 
-  try{
-  tfBuffer.canTransform ("map", "table_1",timeZero, ros::Duration(5.0));
-  transform = tfBuffer.lookupTransform("map", "table_1", timeZero);
-  tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-    ros::Duration(1.0).sleep();
-  }
+  // try{
+  // tfBuffer.canTransform ("map", "table_1",timeZero, ros::Duration(5.0));
+  // transform = tfBuffer.lookupTransform("map", "table_1", timeZero);
+  // tf2::doTransform(navToGoal.target_pose, dockGoal.targetPose,transform);
+  // }
+  // catch (tf2::TransformException &ex) {
+  //   ROS_WARN("%s",ex.what());
+  //   ros::Duration(1.0).sleep();
+  // }
 
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
@@ -805,13 +873,18 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   setPoseRPY(loc.place_pose.pose, 0, 0., 0.);
   loc.frame_to_place = "throw_box_pink";
 
-  loc.user_goal_constr.joint_constraints.resize(1);
-  moveit_msgs::JointConstraint& jc = loc.user_goal_constr.joint_constraints[0];
-  jc.joint_name = "l_wrist_flex_joint";
-  jc.position = -1.27;
-  jc.tolerance_below = 0.1;
-  jc.tolerance_above = 0.1;
-  jc.weight = 1.;
+  jc_torso.joint_name = "torso_lift_joint";
+  jc_torso.position = 0.33;
+  jc_torso.tolerance_below = 0.1;
+  jc_torso.tolerance_above = 0.1;
+  jc_torso.weight = 1.;
+
+  // moveit_msgs::JointConstraint& jc_gripper = loc.user_goal_constr.joint_constraints[1];
+  // jc_gripper.joint_name = "l_wrist_flex_joint";
+  // jc_gripper.position = -1.27;
+  // jc_gripper.tolerance_below = 0.1;
+  // jc_gripper.tolerance_above = 0.1;
+  // jc_gripper.weight = 1.;
 
   // Set the start translation of the left gripper (as frame_to_place is the left gripper tool frame).
   // In some case the part can be in a support (slot) and this starting translation allows to extract the part from this support.
@@ -822,6 +895,8 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   // Send the request to the dual arm place action server
   arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
+  
+  
 }
 
 void home_body(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
@@ -847,24 +922,10 @@ void home_body(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> 
   }
 }
 
-
-/*void moveBasePoseCallback(const geometry_msgs::PoseStampedConstPtr msg, actionlib::SimpleActionClient<base_nav::DockAction>* dockClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>* navClient)
-{
-  ROS_WARN_STREAM("ENTERING CALLBACK");
-  navClient->waitForResult();
-  ROS_WARN_STREAM("MOVE BASE FINISHED");
-  base_nav::DockGoal dockGoal;
-  dockGoal.targetPose.pose = msg->pose;
-  dockGoal.targetPose.header = msg->header;
-  ROS_WARN_STREAM("Sending GOAL TO DOCK");
-  dockClient->sendGoal(dockGoal);
-  dockClient->waitForResult();
-}*/
-
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "actionClient");
-  ros::AsyncSpinner spinner(1);
+  ros::AsyncSpinner spinner(2);
   spinner.start();
   ros::NodeHandle n;
 
@@ -877,6 +938,9 @@ int main(int argc, char **argv)
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
   navTo.waitForServer();
 
+  actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
+  headScan.waitForServer();
+
 
   geometry_msgs::PoseStamped goalPose;
   //ros::Subscriber moveBasePoseGoalSub = n.subscribe<geometry_msgs::PoseStamped>("/move_base/current_goal", 1,boost::bind(&moveBasePoseCallback,_1,&dockTo, &navTo));
@@ -884,7 +948,8 @@ int main(int argc, char **argv)
   //home_body(plan,execute);
 
 
-  scenario_dual_arm(plan,execute,navTo);
+  scenario_dual_arm(plan,execute,navTo,headScan);
+
   //pick_loop(plan,execute);
   
   //scenario_replace_2(plan,execute);

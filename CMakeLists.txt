@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_msgs
   geometry_msgs
   dt_resources
+  dt_head_gestures
   roscpp
   rospy
   base_nav
