@@ -1359,6 +1359,10 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
     geometry_msgs::PoseStamped customPose;
 
 	std::vector<std::string> supportSurfaceId;
+	std::vector<std::string> boxesIds;
+	std::vector<std::string> objInBoxIds;
+	moveit_msgs::CollisionObject collisionObj;
+
 
 	int updateWorldResult = 0;
 
