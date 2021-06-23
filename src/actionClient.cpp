@@ -458,6 +458,39 @@ void pick_loop(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>&
   }
 }
 
+void scan_room(actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction>& headScan)
+{
+  move_base_msgs::MoveBaseGoal navToGoal;
+
+  dt_head_gestures::HeadScanGoal headGoal;
+
+  for(int i=0;i<3;i++)
+  {
+    headGoal.central_point.header.frame_id = "base_footprint";
+    headGoal.central_point.point.x = 0.7;
+    headGoal.central_point.point.y = 0;
+    headGoal.central_point.point.z = 0.80;
+    headGoal.height = 0.6;
+    headGoal.width = 0.6;
+    headGoal.step_length = 0.3;
+    headGoal.duration_per_point.data.sec = 2.3;
+    headScan.sendGoal(headGoal);
+    headScan.waitForResult();
+
+    navToGoal.target_pose.header.frame_id = "base_footprint";
+    navToGoal.target_pose.pose.orientation.x = 0.0;
+    navToGoal.target_pose.pose.orientation.y = 0.0;
+    navToGoal.target_pose.pose.orientation.z = 0.707;
+    navToGoal.target_pose.pose.orientation.w = 0.707;
+
+    navToClient.sendGoal(navToGoal);
+    navToClient.waitForResult();
+
+    ros::Duration(2).sleep();
+  }
+}
+
+
 void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction>& headScan)
 {
   pr2_motion_tasks_msgs::planGoal planGoal;
@@ -489,7 +522,6 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   navToClient.waitForServer();
   ROS_INFO("Server started successfully");
 
-
   planGoal.planGroup = "arms";
   planGoal.action = "move";
   planGoal.predefined_pose_id = "arms_home_compact";
@@ -499,8 +531,61 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   executeClient.waitForResult();
 
 
+  // Scan des objets de toute la chambre
+  scan_room(navToClient,headScan);
+
+
  // waitUser("To move in front of table 1");
 
+  // Move to another room
+  // Avant porte salon
+  navToGoal.target_pose.header.frame_id = "map";
+  navToGoal.target_pose.pose.position.x = 5.87582483292;
+  navToGoal.target_pose.pose.position.y = 8.27849388123;
+  navToGoal.target_pose.pose.position.z = 0.0;
+  navToGoal.target_pose.pose.orientation.x = 0.0;
+  navToGoal.target_pose.pose.orientation.z = 0.707;
+  navToGoal.target_pose.pose.orientation.w = 0.707;
+
+  navToClient.sendGoal(navToGoal);
+  navToClient.waitForResult();
+
+
+  // Passage de porte
+
+
+  // Avant porte chambre
+  navToGoal.target_pose.header.frame_id = "map";
+  navToGoal.target_pose.pose.position.x = 5.87582483292;
+  navToGoal.target_pose.pose.position.y = 9.98707675934;
+  navToGoal.target_pose.pose.position.z = 0.0;
+  navToGoal.target_pose.pose.orientation.x = 0.0;
+  navToGoal.target_pose.pose.orientation.y = 0.0;
+  navToGoal.target_pose.pose.orientation.z = 0.707;
+  navToGoal.target_pose.pose.orientation.w = 0.707;
+
+  navToClient.sendGoal(navToGoal);
+  navToClient.waitForResult();
+
+  // Goal au centre de la chambre
+
+  navToGoal.target_pose.header.frame_id = "map";
+  navToGoal.target_pose.pose.position.x = 5.11309719086;
+  navToGoal.target_pose.pose.position.y = 11.3950786591;
+  navToGoal.target_pose.pose.position.z = 0.0;
+  navToGoal.target_pose.pose.orientation.x = 0.0;
+  navToGoal.target_pose.pose.orientation.y = 0.0;
+  navToGoal.target_pose.pose.orientation.z = 0.0;
+  navToGoal.target_pose.pose.orientation.w = 1.0;
+
+  navToClient.sendGoal(navToGoal);
+  navToClient.waitForResult();
+
+  // Scan des objets de toute la chambre
+  scan_room(navToClient,headScan);
+
+
+  // Deplacement devant la table
   navToGoal.target_pose.header.frame_id = "table_2";
   navToGoal.target_pose.pose.position.x = 0.0;
   navToGoal.target_pose.pose.position.y = -0.90;
@@ -535,6 +620,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   //waitUser("To pick cube");
 
+  // scan de la table
   headGoal.central_point.header.frame_id = "base_footprint";
   headGoal.central_point.point.x = 0.7;
   headGoal.central_point.point.y = 0;
@@ -616,10 +702,40 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   planClient.sendGoal(planGoal);
   planClient.waitForResult();
   executeClient.sendGoal(executeGoal);
-  executeClient.waitForResult();        
+  executeClient.waitForResult();
 
-  
+  // Avant porte chambre
+  navToGoal.target_pose.header.frame_id = "map";
+  navToGoal.target_pose.pose.position.x = 5.87582483292;
+  navToGoal.target_pose.pose.position.y = 9.98707675934;
+  navToGoal.target_pose.pose.position.z = 0.0;
+  navToGoal.target_pose.pose.orientation.x = 0.0;
+  navToGoal.target_pose.pose.orientation.y = 0.0;
+  navToGoal.target_pose.pose.orientation.z = -0.707;
+  navToGoal.target_pose.pose.orientation.w = 0.707;
 
+  navToClient.sendGoal(navToGoal);
+  navToClient.waitForResult();       
+
+  // Passage de porte
+
+  // Avant porte salon
+  navToGoal.target_pose.header.frame_id = "map";
+  navToGoal.target_pose.pose.position.x = 5.87582483292;
+  navToGoal.target_pose.pose.position.y = 8.27849388123;
+  navToGoal.target_pose.pose.position.z = 0.0;
+  navToGoal.target_pose.pose.orientation.x = 0.0;
+  navToGoal.target_pose.pose.orientation.y = 0.0;
+  navToGoal.target_pose.pose.orientation.z = -0.707;
+  navToGoal.target_pose.pose.orientation.w = 0.707;
+
+  navToClient.sendGoal(navToGoal);
+  navToClient.waitForResult();
+
+  // Scan de tout le salon
+  scan_room(navToClient,headScan);
+
+  // Deplacement devant la table basse
   navToGoal.target_pose.header.frame_id = "table_lack";
   navToGoal.target_pose.pose.position.x = 0.0;
   navToGoal.target_pose.pose.position.y = -0.70;
@@ -642,6 +758,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   navToClient.sendGoal(navToGoal);
   navToClient.waitForResult();
 
+  
   
   planGoal.planGroup = "arms";
   planGoal.action = "move";
@@ -773,17 +890,14 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
     ROS_ERROR_STREAM("Retrying to " << planGoal.action << " " << planGoal.objId);
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
-    if(planClient.getResult()->error_code == 1)
+    if(planClient.getResult()->error_code == 1)  
     {
       executeClient.sendGoal(executeGoal);
       executeClient.waitForResult();
     }
     else
       return;
-  }
-
-
-
+  
   // Specifiy the desired value of the torso for the goal state.
   loc.user_goal_constr.joint_constraints.resize(2);
 
@@ -827,10 +941,10 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   // Send the request to the dual arm place action server
   arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
-    
+
   navToGoal.target_pose.header.frame_id = "table_1";
   navToGoal.target_pose.pose.position.x = 0.0;
-  navToGoal.target_pose.pose.position.y = -0.75;
+  navToGoal.target_pose.pose.position.y = -0.70;
   navToGoal.target_pose.pose.position.z = 0.0;
   navToGoal.target_pose.pose.orientation.x = 0.0;
   navToGoal.target_pose.pose.orientation.y = 0.00;
@@ -896,7 +1010,6 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   // Send the request to the dual arm place action server
   arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
   
-  
 }
 
 void home_body(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
@@ -941,7 +1054,7 @@ int main(int argc, char **argv)
   actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
   headScan.waitForServer();
 
-
+ 
   geometry_msgs::PoseStamped goalPose;
   //ros::Subscriber moveBasePoseGoalSub = n.subscribe<geometry_msgs::PoseStamped>("/move_base/current_goal", 1,boost::bind(&moveBasePoseCallback,_1,&dockTo, &navTo));
   //ros::Duration(2).sleep(); 
@@ -950,22 +1063,11 @@ int main(int argc, char **argv)
 
   scenario_dual_arm(plan,execute,navTo,headScan);
 
+  //scan_room(navTo,headScan);
+
   //pick_loop(plan,execute);
   
   //scenario_replace_2(plan,execute);
-
-  /*move_base_msgs::MoveBaseGoal navToGoal;
-
-  navToGoal.target_pose.header.frame_id = "table_1";
-  navToGoal.target_pose.pose.position.x = 0.0;
-  navToGoal.target_pose.pose.position.y = -0.70;
-  navToGoal.target_pose.pose.position.z = 0.0;
-  navToGoal.target_pose.pose.orientation.x = 0.0;
-  navToGoal.target_pose.pose.orientation.y = 0.00;
-  navToGoal.target_pose.pose.orientation.z = 0.707;
-  navToGoal.target_pose.pose.orientation.w = 0.707;
-  ROS_WARN_STREAM("Sending GOAL TO MOVE BASE");
-  navTo.sendGoal(navToGoal);*/
 
   return 0;
 }
