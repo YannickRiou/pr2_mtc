@@ -1061,7 +1061,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
  */
 int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 {
-	ROS_ERROR_STREAM("===============[BEWARE UPDATE OF THE WORLD INCOMING]==================");
+	ROS_DEBUG_STREAM("===============[UPDATE OF THE WORLD INCOMING]==================");
 	shape_msgs::Mesh mesh;
   	shapes::ShapeMsg mesh_msg;
 	shapes::Mesh* m;
@@ -1101,13 +1101,13 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	//objIds.push_back(SUPPORT_SURFACE);
 
 	furnitureIds = onto_.individuals.getType("Furniture");
-	ROS_ERROR_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
+	ROS_DEBUG_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
 
 	// For all furniture, get all the object that are on them
 	for (int j=0; j < furnitureIds.size(); j++)
 	{
-		ROS_ERROR_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
-		ROS_ERROR_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
+		ROS_DEBUG_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
+		ROS_DEBUG_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
 
 		srv.request.ids = furnitureIds;
 		if (udwClient.call(srv))
@@ -1157,8 +1157,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							meshURI.erase(pos, std::string("string#").length());
 						}
 
-						ROS_INFO_STREAM("ObjId is [" << furnitureIds[j] << "]" );
-						ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+						ROS_DEBUG_STREAM("ObjId is [" << furnitureIds[j] << "]" );
+						ROS_DEBUG_STREAM("MESH_URI is [" << meshURI << "]" );
 
 						m = shapes::createMeshFromResource(meshURI);
 
@@ -1256,8 +1256,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 								meshURI.erase(pos, std::string("string#").length());
 							}
 
-							ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
-							ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+							ROS_DEBUG_STREAM("ObjId is [" << objIds[i] << "]" );
+							ROS_DEBUG_STREAM("MESH_URI is [" << meshURI << "]" );
 
 							m = shapes::createMeshFromResource(meshURI);
 
@@ -1299,7 +1299,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 					planning_scene_interface_.applyCollisionObject(collisionObj);
-					ROS_INFO_STREAM("Added to scene");
+					ROS_DEBUG_STREAM("Added to scene");
 				}
 				else
 				{
@@ -1509,6 +1509,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		factStampedMsg_.objId = goal->objId;
 		factStampedMsg_.boxId.clear();
 		factStampedMsg_.arm = armGroup;
+
+		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
