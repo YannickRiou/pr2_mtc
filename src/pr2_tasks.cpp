@@ -352,26 +352,30 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 	std::vector<geometry_msgs::PoseStamped> dropPoses;
 	geometry_msgs::PoseStamped customDropPose;
 
+	for(float i=0;i<0.6;i=i+0.05)
+	{
+		customDropPose.header.frame_id = boxId;
+		customDropPose.pose.position.x = 0.0;
+		customDropPose.pose.position.y = 0.0;
+		customDropPose.pose.position.z = i;
+		customDropPose.pose.orientation.x = 0.0;
+		customDropPose.pose.orientation.y = 0.707;
+		customDropPose.pose.orientation.z = 0.0;
+		customDropPose.pose.orientation.w = 0.707;
+		dropPoses.push_back(customDropPose);
 
-	customDropPose.header.frame_id = boxId;
-	customDropPose.pose.position.x = 0.0;
-	customDropPose.pose.position.y = 0.0;
-	customDropPose.pose.position.z = 0.30;
-	customDropPose.pose.orientation.x = 0.0;
-	customDropPose.pose.orientation.y = 0.707;
-	customDropPose.pose.orientation.z = 0.0;
-	customDropPose.pose.orientation.w = 0.707;
-	dropPoses.push_back(customDropPose);
+		customDropPose.header.frame_id = boxId;
+		customDropPose.pose.position.x = 0.0;
+		customDropPose.pose.position.y = 0.0;
+		customDropPose.pose.position.z = i;
+		customDropPose.pose.orientation.x = 0.0;
+		customDropPose.pose.orientation.y = 0.0;
+		customDropPose.pose.orientation.z = 0.707;
+		customDropPose.pose.orientation.w = 0.707;
+		dropPoses.push_back(customDropPose);
+	}	
 
-	customDropPose.header.frame_id = boxId;
-	customDropPose.pose.position.x = 0.0;
-	customDropPose.pose.position.y = 0.0;
-	customDropPose.pose.position.z = 0.30;
-	customDropPose.pose.orientation.x = 0.0;
-	customDropPose.pose.orientation.y = 0.0;
-	customDropPose.pose.orientation.z = 0.707;
-	customDropPose.pose.orientation.w = 0.707;
-	dropPoses.push_back(customDropPose);
+
 
 	// Increase precision for drop to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
