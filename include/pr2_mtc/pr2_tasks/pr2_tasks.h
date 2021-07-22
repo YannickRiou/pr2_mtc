@@ -50,6 +50,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Float32.h>
 
+#include <shape_msgs/SolidPrimitive.h>
 // Standard type related include
 #include<string>
 #include <unordered_map>
@@ -76,6 +77,9 @@
 #include <pr2_motion_tasks_msgs/planAction.h>
 #include <pr2_motion_tasks_msgs/executeAction.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 // Used to ask ontology to get all object on this support surface
 #define SUPPORT_SURFACE "table_1"
 

@@ -1072,6 +1072,10 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	std::string meshURI;
 	std::vector<std::string> meshTemp;
 
+	std::string dimensionStringRaw;
+	std::vector<std::string> dimensionTemp;
+	std::vector<float> objDimensions;
+
 	moveit_msgs::CollisionObject collisionObj;
 
 	moveit_msgs::CollisionObject throwBox_left;
@@ -1105,20 +1109,22 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	//objIds.push_back(SUPPORT_SURFACE);
 
 	furnitureIds = onto_.individuals.getType("Furniture");
-	ROS_DEBUG_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
+	ROS_INFO_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
 
 	// For all furniture, get all the object that are on them
 	for (int j=0; j < furnitureIds.size(); j++)
 	{
-		ROS_DEBUG_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
-		ROS_DEBUG_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
-
+		ROS_INFO_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
+	
 		srv.request.ids = furnitureIds;
 		if (udwClient.call(srv))
 		{
 			// Clear vector to be able to reuse it
 			collisionObj.meshes.clear();
 			collisionObj.mesh_poses.clear();
+
+			collisionObj.primitives.clear();
+			collisionObj.primitive_poses.clear();
 
 			// Fill in mesh URI (ask ontology or get it from the cache)
 			//Verify if frame_id isn't empty
@@ -1171,8 +1177,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 					}
 					else
 					{
-						ROS_ERROR_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
-						return 2;
+						ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius for furniture with ID : [" + furnitureIds[j] + "]...");
 					}
 				}
 
@@ -1197,6 +1202,9 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 					collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
 				}
 
+				ROS_INFO_STREAM("Successfully transformed pose of furniture with ID [" + furnitureIds[j] + "]");
+
+
 				// Set frame_id to "base_footprint" as it has been transformed
 				collisionObj.header.frame_id = "base_footprint";
 
@@ -1204,11 +1212,16 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
-				ROS_INFO_STREAM("Added to scene");
+				ROS_INFO_STREAM("Successfully added to scene furniture with ID [" + furnitureIds[j] + "]");
 			}
-		}
+
+			ROS_INFO_STREAM("Now adding objects that are on furniture with ID [" + furnitureIds[j] + "]");
+
 
 		objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
+
+			ROS_INFO_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
+
 		// Ask underworld about poses of these ids
 		srv.request.ids = objIds;
 		if (udwClient.call(srv))
@@ -1219,13 +1232,16 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				collisionObj.meshes.clear();
 				collisionObj.mesh_poses.clear();
 
+					collisionObj.primitives.clear();
+					collisionObj.primitive_poses.clear();
+
 				// Fill in mesh URI (ask ontology or get it from the cache)
 				//Verify if frame_id isn't empty
 				// UWDS publish with frame_id as /map so transform to base_footprint
 				if(!srv.response.poses[i].header.frame_id.empty())
 				{
 					// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
-					// Will wait for 1 seconds
+						// Will wait for 5 seconds
 					if(srv.response.poses[i].header.frame_id != "/base_footprint")
 					{
 						try
@@ -1260,29 +1276,19 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 								meshURI.erase(pos, std::string("string#").length());
 							}
 
-							ROS_DEBUG_STREAM("ObjId is [" << objIds[i] << "]" );
-							ROS_DEBUG_STREAM("MESH_URI is [" << meshURI << "]" );
+								ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
+								ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
 
 							m = shapes::createMeshFromResource(meshURI);
 
 							// And add it to the map
 							objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
-						}
-						else
-						{
-							ROS_ERROR_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
-							return 2;
-						}
-					}
 
 					shapes::constructMsgFromShape(m, mesh_msg);
 					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
 
 					// Add the mesh to the Collision object message
 					collisionObj.meshes.push_back(mesh);
-
-					// Set object id
-					collisionObj.id = objIds[i];
 
 					if(srv.response.poses[i].header.frame_id != "/base_footprint")
 					{
@@ -1295,23 +1301,104 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 					{
 						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 					}
+								// Set frame_id to "base_footprint" as it has been transformed
+								collisionObj.header.frame_id = "base_footprint";
 
+								ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
+
+							}
+							else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
+							{
+								// TODO: No mesh means the object is from robosherlock, so we need to ask for dimensions
+								ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
+								ROS_WARN_STREAM("Trying to ask for dimensions if objects comes from Robosherlock...");
+
+								collisionObj.primitives.resize(1);
+
+								// Set the type of object 
+								if(onto_.individuals.getOn(objIds[i],"hasShape")[0] == "box")
+								{
+									ROS_WARN_STREAM("It's a box !!");
+
+									collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
+									
+									collisionObj.primitives[0].dimensions.resize(3);
+									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionX")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
+									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
+									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);
+									
+									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- X : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
+									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Y : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
+									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Z : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);								
+								}
+								else if (onto_.individuals.getOn(objIds[i],"hasShape")[0] == "round")
+								{
+									ROS_WARN_STREAM("It's a cylinder !!");
+
+									collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
+									
+									collisionObj.primitives[0].dimensions.resize(2);
+									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]);
+									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]);
+
+									collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/=2.0;
+								}
+								else
+								{
+									ROS_ERROR("No shape specified for Robosherlock objects....");
+								}	
+
+								if(srv.response.poses[i].header.frame_id != "/base_footprint")
+								{
+									// Transform pose given by UWDS from map to basefootprint
+									colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+									tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
+									collisionObj.primitive_poses.push_back(colliObjPosetransformed.pose);
+								}
+								else
+								{
+									collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
+								}
 					// Set frame_id to "base_footprint" as it has been transformed
-					collisionObj.header.frame_id = "base_footprint";
+								collisionObj.header.frame_id = "/base_footprint";
+
+								ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
+							}
+							else
+							{
+								ROS_ERROR_STREAM("Error while updating the world, object has no shape or no meshes...");
+							}
+						}
+						
+						// Set object id
+						collisionObj.id = objIds[i];
 
 					collisionObj.operation = collisionObj.ADD;
 
 					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 					planning_scene_interface_.applyCollisionObject(collisionObj);
-					ROS_DEBUG_STREAM("Added to scene");
-				}
-				else
-				{
-					ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+						ROS_INFO_STREAM("Successfully added to scene object with ID [" + collisionObj.id + "]");
+					}
+					else
+					{
+						ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+					}
+					ROS_INFO_STREAM("----------------------------------------------------------------------------");
 				}
 			}
-	 	}
+			else
+			{
+				ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for objects !]==================");
+				return -6 ;
+			}
+		}
+		else
+		{
+			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for furniture !]==================");
+			return -6;
+		}
 
+		ROS_INFO_STREAM("###########################################################################################");	
 	}
 }
 
