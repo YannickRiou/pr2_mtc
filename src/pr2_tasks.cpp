@@ -155,15 +155,15 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		placeTask->properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
 		place->properties().configureInitFrom(Stage::PARENT, {"eef", "group", "ik_frame"});
 
-		// Temporary set an approach stage to avoid solutions with collisions
-		{
+		// Set an approach stage to avoid solutions with collisions
+		/*{
 			std::vector<geometry_msgs::PoseStamped> approachPlacePoses;
 			geometry_msgs::PoseStamped approach;
-			approach = placePoses[0];
+			approach = placePose;
 			approach.pose.position.x = approach.pose.position.x-0.20;
 			approachPlacePoses.push_back(approach);
 
-			approach = placePoses[1];
+			approach = placePose;
 			approach.pose.position.x = approach.pose.position.x+0.20;
 			approachPlacePoses.push_back(approach);
 
@@ -175,11 +175,12 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("approch to pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			place->insert(std::move(wrapper));
-		}
+		}*/
 
 		{
 			// connect
@@ -191,7 +192,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 
 		{
 			auto stage = std::make_unique<stages::GenerateCustomPose>("place the object");
-			stage->setCustomPoses(placePoses);
+			stage->setCustomPoses({placePoses});
 			stage->properties().configureInitFrom(Stage::PARENT);
 			stage->setMonitoredStage(current_state);
 			current_state = stage.get();
@@ -199,6 +200,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			place->insert(std::move(wrapper));
@@ -230,7 +232,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 			place->insert(std::move(stage));
 		}
 		placeTask->add(std::move(place));
-
 	}
 }
 
@@ -281,6 +282,7 @@ void motionPlanning::createMoveTask(std::unique_ptr<moveit::task_constructor::Ta
 		auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
 		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
+		wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -408,6 +410,7 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 		auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
 		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
+		wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
@@ -552,6 +555,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
 			grasp->insert(std::move(wrapper));
@@ -732,6 +736,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK first arm", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(first_ikFrame_);
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
 			grasp->insert(std::move(wrapper));
@@ -830,7 +835,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 			wrapper->setProperty("group",planGroup_second);
 			wrapper->setIKFrame(second_ikFrame_);
 			wrapper->setProperty("eef",second_eef_);
-
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			grasp->insert(std::move(wrapper));
 		}
@@ -962,6 +967,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage));
 			wrapper->setMaxIKSolutions(8);
 			wrapper->setMinSolutionDistance(1.0);
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->setIKFrame(tr,ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -1217,10 +1223,15 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 			ROS_INFO_STREAM("Now adding objects that are on furniture with ID [" + furnitureIds[j] + "]");
 
-
-		objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
+			objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
 
 			ROS_INFO_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
+		}
+		else
+		{
+			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for furniture !]==================");
+			return -6;
+		}
 
 		// Ask underworld about poses of these ids
 		srv.request.ids = objIds;
@@ -1232,8 +1243,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				collisionObj.meshes.clear();
 				collisionObj.mesh_poses.clear();
 
-					collisionObj.primitives.clear();
-					collisionObj.primitive_poses.clear();
+				collisionObj.primitives.clear();
+				collisionObj.primitive_poses.clear();
 
 				// Fill in mesh URI (ask ontology or get it from the cache)
 				//Verify if frame_id isn't empty
@@ -1283,30 +1294,14 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 							// And add it to the map
 							objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
-
-					shapes::constructMsgFromShape(m, mesh_msg);
-					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-
-					// Add the mesh to the Collision object message
-					collisionObj.meshes.push_back(mesh);
-
-					if(srv.response.poses[i].header.frame_id != "/base_footprint")
-					{
-						// Transform pose given by UWDS from map to basefootprint
-						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-						tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
-						collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+						}
+						else
+						{
+							ROS_ERROR_STREAM("Error while updating the world, object has no meshs...");
+						}
 					}
-					else
-					{
-						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
-					}
-								// Set frame_id to "base_footprint" as it has been transformed
-								collisionObj.header.frame_id = "base_footprint";
 
-								ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
-
-							}
+							/*
 							else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
 							{
 								// TODO: No mesh means the object is from robosherlock, so we need to ask for dimensions
@@ -1359,45 +1354,56 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 								{
 									collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
 								}
-					// Set frame_id to "base_footprint" as it has been transformed
+					            // Set frame_id to "base_footprint" as it has been transformed
 								collisionObj.header.frame_id = "/base_footprint";
 
 								ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
-							}
-							else
-							{
-								ROS_ERROR_STREAM("Error while updating the world, object has no shape or no meshes...");
-							}
-						}
-						
-						// Set object id
-						collisionObj.id = objIds[i];
+							}*/
+												
+					// Set object id
+					collisionObj.id = objIds[i];
 
 					collisionObj.operation = collisionObj.ADD;
 
-					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
-					planning_scene_interface_.applyCollisionObject(collisionObj);
-						ROS_INFO_STREAM("Successfully added to scene object with ID [" + collisionObj.id + "]");
+					shapes::constructMsgFromShape(m, mesh_msg);
+					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+					// Add the mesh to the Collision object message
+					collisionObj.meshes.push_back(mesh);
+
+					if(srv.response.poses[i].header.frame_id != "/base_footprint")
+					{
+						// Transform pose given by UWDS from map to basefootprint
+						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+						tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
+						collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
 					}
 					else
 					{
-						ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 					}
-					ROS_INFO_STREAM("----------------------------------------------------------------------------");
+					// Set frame_id to "base_footprint" as it has been transformed
+					collisionObj.header.frame_id = "base_footprint";
+
+					ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
+
+					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
+					planning_scene_interface_.applyCollisionObject(collisionObj);
+					ROS_INFO_STREAM("Successfully added to scene object with ID [" + collisionObj.id + "]");
 				}
-			}
-			else
-			{
-				ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for objects !]==================");
-				return -6 ;
+				else
+				{
+					ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+				}
+				ROS_INFO_STREAM("----------------------------------------------------------------------------");
 			}
 		}
 		else
 		{
-			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for furniture !]==================");
-			return -6;
+			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for objects !]==================");
+			return -6 ;
 		}
-
+	
 		ROS_INFO_STREAM("###########################################################################################");	
 	}
 }
@@ -1436,6 +1442,30 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
 }
 
  /**
+ * \fn void getPoseIntoBasefootprint(const geometry_msgs::PoseStampedConstPtr& in_pose, geometry_msgs::PoseStamped& out_pose)
+ * \brief Function to get input pose into base_footprint frame (to get same orientation everytime)
+ *
+ * \param in_pose Input pose unstransformed
+ * \param out_pose Pose transformed into base_footprint frame
+ */
+void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped& out_pose)
+{
+	geometry_msgs::TransformStamped transform;
+
+	try
+	{
+		transform = tfBuffer_.lookupTransform("base_footprint",in_pose.header.frame_id, ros::Time(0),ros::Duration(5.0));
+	}
+	catch (tf2::TransformException &ex)
+	{
+		ROS_WARN("%s",ex.what());
+		return ;
+	}
+
+	tf2::doTransform(in_pose,out_pose,transform);
+}
+
+ /**
  * \fn void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient)
  * \brief Callback that is called when supervisor ask for a plan
  *
@@ -1449,6 +1479,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::vector<geometry_msgs::PoseStamped> customPoses;
     geometry_msgs::PoseStamped customPose;
 
+	geometry_msgs::PoseStamped transformedPose;
+
 	std::vector<std::string> supportSurfaceId;
 	std::vector<std::string> boxesIds;
 	std::vector<std::string> objInBoxIds;
@@ -1460,7 +1492,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::string armGroup;
 	std::string taskName;
 
-	if((goal->action == "pick") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
+	if((goal->action == "pick") || (goal->action == "pick_dt") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
 	{
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
@@ -1556,43 +1588,48 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== PICK ======//
 	if(goal->action == "pick")
 	{
-		if(goal->pose.header.frame_id == "")
-		{
-			customPose.header.frame_id = goal->objId;
-			customPose.pose.position.x = -0.02;
-			customPose.pose.position.y = 0.0;
-			customPose.pose.position.z = 0.0;
-			customPose.pose.orientation.x = 0.0;
-			customPose.pose.orientation.y = 0.0;
-			customPose.pose.orientation.z = 0.0;
-			customPose.pose.orientation.w = 1.0;
-			customPoses.push_back(customPose);
+
+		getPoseIntoBasefootprint(goal->pose,transformedPose);
+
+		transformedPose.header.frame_id = "/base_footprint";
+
+		customPoses.push_back(transformedPose);
+
+		taskName = goal->action + "_" + goal->objId;
+
+		factStampedMsg_.action = factStampedMsg_.PICK;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId.clear();
+		factStampedMsg_.arm = armGroup;
+
+		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
+
+		// Create Task
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		createPickTaskCustom(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
+	}
+	else if(goal->action == "pick_dt")
+	{
+		customPose.header.frame_id = goal->objId;
+		customPose.pose.position.x = -0.02;
+		customPose.pose.position.y = 0.0;
+		customPose.pose.position.z = 0.0;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 0.0;
+		customPose.pose.orientation.w = 1.0;
+		customPoses.push_back(customPose);
 
 
-			customPose.header.frame_id = goal->objId;
-			customPose.pose.position.x = 0.02;
-			customPose.pose.position.y = 0.0;
-			customPose.pose.position.z = 0.0;
-			customPose.pose.orientation.x = 0.0;
-			customPose.pose.orientation.y = 0.0;
-			customPose.pose.orientation.z = 1.0;
-			customPose.pose.orientation.w = 0.0;
-			customPoses.push_back(customPose);
-
-			/*customPose.header.frame_id = goal->objId;
-			customPose.pose.position.x = 0.0;
-			customPose.pose.position.y = 0.0;
-			customPose.pose.position.z = 0.04;
-			customPose.pose.orientation.x = 0.0;
-			customPose.pose.orientation.y = 0.707;
-			customPose.pose.orientation.z = 0.0;
-			customPose.pose.orientation.w = 0.707;
-			customPoses.push_back(customPose);*/
-		}
-		else
-		{ 
-			customPoses.push_back(goal->pose);
-		}
+		customPose.header.frame_id = goal->objId;
+		customPose.pose.position.x = 0.02;
+		customPose.pose.position.y = 0.0;
+		customPose.pose.position.z = 0.0;
+		customPose.pose.orientation.x = 0.0;
+		customPose.pose.orientation.y = 0.0;
+		customPose.pose.orientation.z = 1.0;
+		customPose.pose.orientation.w = 0.0;
+		customPoses.push_back(customPose);
 
 		taskName = goal->action + "_" + goal->objId;
 
@@ -1658,6 +1695,28 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== PLACE ======//
 	else if(goal->action == "place")
 	{
+
+		getPoseIntoBasefootprint(goal->pose,transformedPose);
+
+		transformedPose.header.frame_id = "/base_footprint";
+		transformedPose.pose.position.z += 0.05;
+
+		customPoses.push_back(transformedPose);
+
+		taskName = goal->action + "_" + goal->objId;
+
+		factStampedMsg_.action = factStampedMsg_.PLACE;
+		factStampedMsg_.objId = goal->objId;
+		factStampedMsg_.boxId = goal->boxId;
+		factStampedMsg_.arm = armGroup;
+
+		// Create Task
+		lastPlannedTask_ = std::make_unique<Task>(taskName);
+
+		createPlaceTask(lastPlannedTask_, armGroup, goal->objId, customPoses);
+	}
+	else if(goal->action == "place_dt")
+	{
 		customPose.header.frame_id = goal->boxId;
 		customPose.pose.position.x = -0.02;
 		customPose.pose.position.y = 0.0;
@@ -1678,7 +1737,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.pose.orientation.z = 1.0;
 		customPose.pose.orientation.w = 0.0;
 		customPoses.push_back(customPose);
-
 
 		taskName = goal->action + "_" + goal->objId + "_in_" + goal->boxId;
 

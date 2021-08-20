@@ -16,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   dt_head_gestures
   roscpp
   rospy
-  base_nav
   move_group_x
   dual_arm_manipulation
   rviz_marker_tools
@@ -119,9 +118,6 @@ add_executable(actionClient src/actionClient.cpp)
 target_link_libraries(actionClient ${catkin_LIBRARIES})
 add_dependencies(actionClient ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(pr2_gripper_event src/pr2_gripper_event.cpp)
-add_dependencies(pr2_gripper_event ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(pr2_gripper_event ${catkin_LIBRARIES})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

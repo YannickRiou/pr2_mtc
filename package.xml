@@ -60,7 +60,6 @@
   <build_depend>dt_resources</build_depend>
   <build_depend>dual_arm_manipulation</build_depend>
   <build_depend>move_group_x</build_depend>
-  <build_depend>base_nav</build_depend>
   <build_depend>dt_head_gestures</build_depend>
 
 
@@ -74,7 +73,6 @@
   <build_export_depend>dt_head_gestures</build_export_depend>
 
    
-  <exec_depend>base_nav</exec_depend>
   <exec_depend>move_group_x</exec_depend>
   <exec_depend>dual_arm_manipulation</exec_depend>
   <exec_depend>dt_resources</exec_depend>

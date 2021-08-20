@@ -109,6 +109,8 @@ class motionPlanning
 
         int updateWorld(ros::ServiceClient& udwClient);
 
+        void getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped& out_pose);
+
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient);
 
         void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher);

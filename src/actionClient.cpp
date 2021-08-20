@@ -897,6 +897,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
     }
     else
       return;
+  }
   
   // Specifiy the desired value of the torso for the goal state.
   loc.user_goal_constr.joint_constraints.resize(2);
