@@ -70,9 +70,6 @@
 // Service to get object pose from UDWS
 #include <pr2_motion_tasks_msgs/GetPose.h>
 
-// Message to tell about facts
-#include <pr2_motion_tasks_msgs/RobotAction.h>
-
 // Action server for supervisor to call pick, place and move tasks
 #include <pr2_motion_tasks_msgs/planAction.h>
 #include <pr2_motion_tasks_msgs/executeAction.h>
@@ -104,11 +101,11 @@ class motionPlanning
 
         void createMovePredefinedTask(std::unique_ptr<moveit::task_constructor::Task>& moveTask, const std::string planGroup,const std::string pose_id);
 
-        void createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
+        void createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object,const std::string supportId, std::vector<geometry_msgs::PoseStamped> graspPoses);
 
-        void createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second);
+        void createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string supportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second);
 
-        void createPickTask(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId);
+        void createPickTask(std::unique_ptr<moveit::task_constructor::Task>& pickTask, const std::string planGroup,const std::string object, const std::string supportId);
 
         void createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId);
 
@@ -118,7 +115,7 @@ class motionPlanning
 
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient);
 
-        void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher);
+        void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal);
 
         void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat);
 
@@ -137,8 +134,6 @@ class motionPlanning
 
         // Service to get object pose from underworld
         ros::ServiceClient getPoseSrv_;
-
-        ros::Publisher facts_pub_;
 
         OntologyManipulator onto_;
 
@@ -165,8 +160,6 @@ class motionPlanning
 
         // planner used for gripper open/close movements
         std::shared_ptr<solvers::JointInterpolationPlanner> gripper_planner_;
-
- 		pr2_motion_tasks_msgs::RobotAction factStampedMsg_;
 
         // Variable to set the eef used during task
         std::string eef_;

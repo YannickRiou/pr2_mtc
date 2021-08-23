@@ -50,8 +50,6 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 
 	ROS_INFO("[Node connected to getPose service]");
 
-	facts_pub_ = nh_.advertise<pr2_motion_tasks_msgs::RobotAction>("pr2_facts", 1000);
-
 	planServer_ = std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>>(nh_, "plan", boost::bind(&motionPlanning::planCallback,this, _1, getPoseSrv_), false);
 	executeServer_ =  std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>>(nh_, "execute", boost::bind(&motionPlanning::executeCallback,this, _1, facts_pub_), false);
 
@@ -1597,11 +1595,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		taskName = goal->action + "_" + goal->objId;
 
-		factStampedMsg_.action = factStampedMsg_.PICK;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId.clear();
-		factStampedMsg_.arm = armGroup;
-
 		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
 
 		// Create Task
@@ -1632,11 +1625,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPoses.push_back(customPose);
 
 		taskName = goal->action + "_" + goal->objId;
-
-		factStampedMsg_.action = factStampedMsg_.PICK;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId.clear();
-		factStampedMsg_.arm = armGroup;
 
 		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
 
@@ -1670,11 +1658,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	
 		taskName = goal->action + "_" + goal->objId + "with" + armGroup_left + "and" + armGroup_right;
 
-		factStampedMsg_.action = factStampedMsg_.PICK;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId.clear();
-		factStampedMsg_.arm = armGroup;
-
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 		createPickTaskCustomDual(lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
@@ -1682,11 +1665,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	else if(goal->action == "pickAuto")
 	{
 		taskName = goal->action + "Auto_" + goal->objId;
-
-		factStampedMsg_.action = factStampedMsg_.PICK;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId.clear();
-		factStampedMsg_.arm = armGroup;
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
@@ -1704,11 +1682,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPoses.push_back(transformedPose);
 
 		taskName = goal->action + "_" + goal->objId;
-
-		factStampedMsg_.action = factStampedMsg_.PLACE;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId = goal->boxId;
-		factStampedMsg_.arm = armGroup;
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
@@ -1868,8 +1841,6 @@ void activeCb()
  * \brief Callback that is called when supervisor ask to execute last planned task
  *
  * \param goal Goal sent by supervisor. Void
- * \param factsPublisher Publisher to send information on action that has been executed (pick cube, place, etc.)
-
  */
 void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher)
 {
@@ -1891,10 +1862,6 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
-
-		// Publish fact to inform that we are doing this action
-		factStampedMsg_.stamp = ros::Time::now();
-		factsPublisher.publish(factStampedMsg_);
 
 		ROS_INFO_STREAM("Sending goal to execute the previous task");
 
