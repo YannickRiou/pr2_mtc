@@ -14,7 +14,7 @@
 // Class constructor
 motionPlanning::motionPlanning(ros::NodeHandle& nh)
   : nh_(nh),
-  	onto_("robot"),
+  	onto_(ROBOT_ONTOLOGY_NAME),
 	robot_model_loader_("robot_description"),
 	transformListenner_(tfBuffer_)
 {
@@ -35,18 +35,18 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 
 	// Create the common pipeline planner (by default RRTConnect) that will be used when creating a task with MTC
 	pipelinePlanner_ = std::make_shared<solvers::PipelinePlanner>();
-	pipelinePlanner_->setPlannerId("RRTConnect");
+	pipelinePlanner_->setPlannerId(PLANNER);
 
 	// Define the distance between two waypoint in trajectory.
 	// Large value might lead to a trajectory going through collision objects
 	// Small value will increase computing time
-	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.01);
+	pipelinePlanner_->setProperty("longest_valid_segment_fraction",DEFAULT_LONGEST_VALID_SEGMENT_FRACTION);
 
 	// Create the common planner for gripper open/close movement when creating task with MTC
 	gripper_planner_ = std::make_shared<solvers::JointInterpolationPlanner>();
 
-	getPoseSrv_ = nh_.serviceClient<pr2_motion_tasks_msgs::GetPose>("/tag_service/getPose");
-	ros::service::waitForService("/tag_service/getPose", -1);
+	getPoseSrv_ = nh_.serviceClient<pr2_motion_tasks_msgs::GetPose>(GET_POSE_TOPIC);
+	ros::service::waitForService(GET_POSE_TOPIC, -1);
 
 	ROS_INFO("[Node connected to getPose service]");
 

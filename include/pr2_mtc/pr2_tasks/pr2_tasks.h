@@ -80,10 +80,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 // Used to ask ontology to get all object on this support surface
-#define SUPPORT_SURFACE "table_1"
+#define ROBOT_ONTOLOGY_NAME "robot"
 
 #define PLANNER "TRRT"
+
+#define DEFAULT_LONGEST_VALID_SEGMENT_FRACTION 0.00001
+
+#define GET_POSE_TOPIC "/tag_service/getPose"
 
 using namespace moveit::task_constructor;
 
