@@ -1432,13 +1432,13 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
 }
 
  /**
- * \fn void getPoseIntoBasefootprint(const geometry_msgs::PoseStampedConstPtr& in_pose, geometry_msgs::PoseStamped& out_pose)
+ * \fn void getPoseIntoBasefootprint(const geometry_msgs::PoseStampedConstPtr& in_pose, geometry_msgs::PoseStamped* out_pose)
  * \brief Function to get input pose into base_footprint frame (to get same orientation everytime)
  *
  * \param in_pose Input pose unstransformed
  * \param out_pose Pose transformed into base_footprint frame
  */
-void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped& out_pose)
+void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped* out_pose)
 {
 	geometry_msgs::TransformStamped transform;
 
@@ -1452,7 +1452,7 @@ void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped i
 		return ;
 	}
 
-	tf2::doTransform(in_pose,out_pose,transform);
+	tf2::doTransform(in_pose,*out_pose,transform);
 }
 
  /**
@@ -1579,7 +1579,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	if(goal->action == "pick")
 	{
 
-		getPoseIntoBasefootprint(goal->pose,transformedPose);
+		getPoseIntoBasefootprint(goal->pose,&transformedPose);
 
 		transformedPose.header.frame_id = "/base_footprint";
 
@@ -1666,7 +1666,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	else if(goal->action == "place")
 	{
 
-		getPoseIntoBasefootprint(goal->pose,transformedPose);
+		getPoseIntoBasefootprint(goal->pose,&transformedPose);
 
 		transformedPose.header.frame_id = "/base_footprint";
 		transformedPose.pose.position.z += 0.05;
