@@ -79,13 +79,13 @@
 #include <string.h>
 
 // Used to ask ontology to get all object on this support surface
-#define ROBOT_ONTOLOGY_NAME "robot"
+#define ROBOT_ONTOLOGY_NAME "pr2_robot"
 
 #define PLANNER "TRRT"
 
 #define DEFAULT_LONGEST_VALID_SEGMENT_FRACTION 0.00001
 
-#define GET_POSE_TOPIC "/tag_service/getPose"
+#define GET_POSE_TOPIC "/overworld/getPose"
 
 using namespace moveit::task_constructor;
 
