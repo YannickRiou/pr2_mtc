@@ -318,7 +318,7 @@ void motionPlanning::createMovePredefinedTask(std::unique_ptr<moveit::task_const
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to be droped (it needs to be already attached to the eef of the associated planGroup)
  */
-void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId)
+void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string dropFrame)
 {
 	dropTask->setRobotModel(kinematic_model_);
 
@@ -346,7 +346,7 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 
 	for(float i=0;i<0.6;i=i+0.05)
 	{
-		customDropPose.header.frame_id = boxId;
+		customDropPose.header.frame_id = dropFrame;
 		customDropPose.pose.position.x = 0.0;
 		customDropPose.pose.position.y = 0.0;
 		customDropPose.pose.position.z = i;
@@ -356,7 +356,7 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 		customDropPose.pose.orientation.w = 0.707;
 		dropPoses.push_back(customDropPose);
 
-		customDropPose.header.frame_id = boxId;
+		customDropPose.header.frame_id = dropFrame;
 		customDropPose.pose.position.x = 0.0;
 		customDropPose.pose.position.y = 0.0;
 		customDropPose.pose.position.z = i;
@@ -431,7 +431,7 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
  * \param object Object to pick
  * \param graspPose Grasp pose to be used when picking the object
  */
-void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses)
+void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object,const std::string supportId, std::vector<geometry_msgs::PoseStamped> graspPoses)
 {
 	pickTask->setRobotModel(kinematic_model_);
 
@@ -579,7 +579,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		 ***************************************************/
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (object,support)");
-			stage->allowCollisions({ object }, boxSupportId, true);
+			stage->allowCollisions({ object }, supportId, true);
 			grasp->insert(std::move(stage));
 		}
 		
@@ -603,7 +603,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		***************************************************/
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("forbid collision (object,surface)");
-			stage->allowCollisions({ object }, boxSupportId, false);
+			stage->allowCollisions({ object }, supportId, false);
 			grasp->insert(std::move(stage));
 		}
 
@@ -625,7 +625,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 
 }
 
-void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string boxSupportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second)
+void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup_first,const std::string planGroup_second ,const std::string object,const std::string supportId, std::vector<geometry_msgs::PoseStamped> graspPoses_first, std::vector<geometry_msgs::PoseStamped> graspPoses_second)
 {
 	pickTask->setRobotModel(kinematic_model_);
 
@@ -871,7 +871,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
  * \param planGroup Moveit planning group (ie. arm doing the place)
  * \param object Object to pick
  */
-void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object, const std::string boxSupportId)
+void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Task>&pickTask, const std::string planGroup,const std::string object, const std::string supportId)
 {
 	pickTask->setRobotModel(kinematic_model_);
 
@@ -1000,7 +1000,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 		 ***************************************************/
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("allow collision (object,support)");
-			stage->allowCollisions({ object }, boxSupportId, true);
+			stage->allowCollisions({ object }, supportId, true);
 			pick->insert(std::move(stage));
 		}
 
@@ -1026,7 +1026,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 		 ***************************************************/
 		{
 			auto stage = std::make_unique<stages::ModifyPlanningScene>("forbid collision (object,surface)");
-			stage->allowCollisions({ object }, boxSupportId, false);
+			stage->allowCollisions({ object }, supportId, false);
 			pick->insert(std::move(stage));
 		}
 
@@ -1682,7 +1682,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	}
 	else if(goal->action == "place_dt")
 	{
-		customPose.header.frame_id = goal->boxId;
+		customPose.header.frame_id = goal->objId;
 		customPose.pose.position.x = -0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = -0.035;
@@ -1693,7 +1693,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPoses.push_back(customPose);
 
 
-		customPose.header.frame_id = goal->boxId;
+		customPose.header.frame_id = goal->objId;
 		customPose.pose.position.x = 0.02;
 		customPose.pose.position.y = 0.0;
 		customPose.pose.position.z = -0.035;
@@ -1703,7 +1703,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.pose.orientation.w = 0.0;
 		customPoses.push_back(customPose);
 
-		taskName = goal->action + "_" + goal->objId + "_in_" + goal->boxId;
+		taskName = goal->action + "_" + goal->objId + "_in_" + goal->pose.header.frame_id;
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
@@ -1742,7 +1742,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
 
-		createDropTask(lastPlannedTask_, armGroup,goal->objId, goal->boxId);
+		createDropTask(lastPlannedTask_, armGroup,goal->objId, goal->pose.header.frame_id);
 	}
 	else
 	{
