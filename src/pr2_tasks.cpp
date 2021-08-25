@@ -1485,7 +1485,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	int updateWorldResult = 0;
 
-	std::string armGroup;
 	std::string taskName;
 
 	if((goal->action == "pick") || (goal->action == "pick_dt") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
@@ -1566,20 +1565,22 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		objIds.push_back(goal->objId);
 		if(planning_scene_interface_.getObjectPoses(objIds).find(goal->objId)->second.position.y > 0)
 		{
-			armGroup = "left_arm";
+			taskArmGroup_ = "left_arm";
 		}
 		else
 		{
-			armGroup = "right_arm";
+			taskArmGroup_ = "right_arm";
 		}
 	}
 	else
 	{
-		armGroup = goal->planGroup;
+		taskArmGroup_ = goal->planGroup;
 	}
 
 	// reset to avoid problem on introspection
 	lastPlannedTask_.reset();
+
+	taskObjId_ = goal->objId;
 
 	//====== PICK ======//
 	if(goal->action == "pick")
@@ -1589,6 +1590,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		transformedPose.header.frame_id = "/base_footprint";
 
+		debug_pose_pub_.publish(transformedPose);
+
 		customPoses.push_back(transformedPose);
 
 		taskName = goal->action + "_" + goal->objId;
@@ -1597,7 +1600,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
-		createPickTaskCustom(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
+		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pick_dt")
 	{
@@ -1628,7 +1631,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
-		createPickTaskCustom(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0], customPoses);
+		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickDual")
 	{
@@ -1644,15 +1647,15 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		std::string armGroup_right = "";
 
 		auto start = 0U;
-		auto end = armGroup.find(delim);
+		auto end = taskArmGroup_.find(delim);
 		
-		armGroup_left = armGroup.substr(start, end - start);
+		armGroup_left = taskArmGroup_.substr(start, end - start);
 		start = end + delim.length();
-		end = armGroup.find(delim, start);
+		end = taskArmGroup_.find(delim, start);
 
-		armGroup_right = armGroup.substr(start, end - start);
+		armGroup_right = taskArmGroup_.substr(start, end - start);
 		start = end + delim.length();
-		end = armGroup.find(delim, start);
+		end = taskArmGroup_.find(delim, start);
 	
 		taskName = goal->action + "_" + goal->objId + "with" + armGroup_left + "and" + armGroup_right;
 
@@ -1666,7 +1669,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
-		createPickTask(lastPlannedTask_,armGroup,goal->objId,supportSurfaceId[0]);
+		createPickTask(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0]);
 	}
 	//====== PLACE ======//
 	else if(goal->action == "place")
@@ -1676,6 +1679,9 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		transformedPose.header.frame_id = "/base_footprint";
 		transformedPose.pose.position.z += 0.05;
+	
+		debug_pose_pub_.publish(transformedPose);
+
 
 		customPoses.push_back(transformedPose);
 
@@ -1684,7 +1690,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
-		createPlaceTask(lastPlannedTask_, armGroup, goal->objId, customPoses);
+		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
 	else if(goal->action == "place_dt")
 	{
@@ -1714,7 +1720,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
-		createPlaceTask(lastPlannedTask_, armGroup, goal->objId, customPoses);
+		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
 	//====== MOVE ======//
 	else if (goal->action == "move")
@@ -1725,19 +1731,19 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		if(goal->predefined_pose_id.empty())
 		{
-			createMoveTask(lastPlannedTask_, armGroup,goal->pose);
+			createMoveTask(lastPlannedTask_, taskArmGroup_,goal->pose);
 		}
 		else
 		{
-			if((goal->predefined_pose_id == "left_arm_home") && (armGroup == ""))
+			if((goal->predefined_pose_id == "left_arm_home") && (taskArmGroup_ == ""))
 			{
-				armGroup = "left_arm";
+				taskArmGroup_ = "left_arm";
 			}
-			else if((goal->predefined_pose_id == "right_arm_home") && (armGroup == ""))
+			else if((goal->predefined_pose_id == "right_arm_home") && (taskArmGroup_ == ""))
 			{
-				armGroup = "right_arm";
+				taskArmGroup_ = "right_arm";
 			}
-			createMovePredefinedTask(lastPlannedTask_, armGroup,goal->predefined_pose_id);
+			createMovePredefinedTask(lastPlannedTask_, taskArmGroup_,goal->predefined_pose_id);
 		}
 	}
 	//====== DROP ======//
@@ -1748,7 +1754,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
 
-		createDropTask(lastPlannedTask_, armGroup,goal->objId, goal->pose.header.frame_id);
+		createDropTask(lastPlannedTask_, taskArmGroup_,goal->objId, goal->pose.header.frame_id);
 	}
 	else
 	{
@@ -1771,7 +1777,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
-			planResult.armUsed = armGroup;
+			planResult.armUsed = taskArmGroup_;
 			pr2_motion_tasks_msgs::planFeedback planFeedback;
 			planFeedback.status = 100;
 			planServer_->publishFeedback(planFeedback);
@@ -1836,6 +1842,9 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	pr2_motion_tasks_msgs::executeFeedback executeFeedback;
   	pr2_motion_tasks_msgs::executeResult executeResult;
 
+	moveit_msgs::AttachedCollisionObject collisionAttObj;
+	moveit_msgs::CollisionObject collisionObj;
+
 	bool doneFlag = false;
 
 	moveit_task_constructor_msgs::ExecuteTaskSolutionGoal execute_goal;
@@ -1852,7 +1861,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
-		ROS_INFO_STREAM("Sending goal to execute the previous task");
+		ROS_INFO_STREAM("Sending goal to execute the previous task ("<< lastPlannedTask_->id() << ")");
 
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
 		executeFeedback.action_start = ros::Time::now();
@@ -1891,10 +1900,43 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		}
 		else
 		{
+			// If task name was a pick or place, check if something has been really attached/detached
+			// If not delete object attached from moveit world
+			if(lastPlannedTask_->id().find("pick") != std::string::npos)
+			{
+				if(onto_.individuals.getOn("pr2_robot","hasInLeftHand").size() > 0 && taskArmGroup_ == "left_arm")
+				{
+					executeResult.error_code = 1;
+					executeResult.action_end = ros::Time::now();
+					executeServer_->setSucceeded(executeResult);
+					ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
+				}
+				else if(onto_.individuals.getOn("pr2_robot","hasInRightHand").size() > 0 && taskArmGroup_ == "right_arm")
+				{
 			executeResult.error_code = 1;
 			executeResult.action_end = ros::Time::now();
 			executeServer_->setSucceeded(executeResult);
 			ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
+				}
+				else
+				{
+					//Detqch object from gripper 
+					collisionAttObj.object.id = taskObjId_;
+					collisionAttObj.link_name = "";
+					collisionAttObj.object.operation = collisionAttObj.object.REMOVE;
+					planning_scene_interface_.applyAttachedCollisionObject(collisionAttObj);	
+
+					// Delete object from moveit world
+					collisionObj.id = taskObjId_;
+					collisionObj.operation = collisionObj.REMOVE;
+					planning_scene_interface_.applyCollisionObject(collisionObj);					
+			
+					ROS_ERROR_STREAM("Task execution succeeded but SA returned that object isn't held by gripper");
+					ROS_ERROR_STREAM("Obj [" << taskObjId_ << "] has been deleted from moveit world");
+					executeResult.error_code = -2;
+					executeServer_->setAborted(executeResult);
+				}
+			}		
 		}
 	}
 	else

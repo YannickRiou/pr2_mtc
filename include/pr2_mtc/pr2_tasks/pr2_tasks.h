@@ -128,6 +128,9 @@ class motionPlanning
         // Variable to store the last task that was planned
         // To be able to execute it afterward
         std::unique_ptr<Task> lastPlannedTask_;
+        std::string taskArmGroup_;
+        std::string taskObjId_;
+
 
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>> planServer_;
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>> executeServer_;
