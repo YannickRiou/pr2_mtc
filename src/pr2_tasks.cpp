@@ -51,7 +51,7 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	ROS_INFO("[Node connected to getPose service]");
 
 	planServer_ = std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>>(nh_, "plan", boost::bind(&motionPlanning::planCallback,this, _1, getPoseSrv_), false);
-	executeServer_ =  std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>>(nh_, "execute", boost::bind(&motionPlanning::executeCallback,this, _1, facts_pub_), false);
+	executeServer_ =  std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>>(nh_, "execute", boost::bind(&motionPlanning::executeCallback,this, _1), false);
 
 
 	// Action servers for supervisor
@@ -1705,11 +1705,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		taskName = goal->action + "_" + goal->objId + "_in_" + goal->boxId;
 
-		factStampedMsg_.action = factStampedMsg_.PLACE;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId = goal->boxId;
-		factStampedMsg_.arm = armGroup;
-
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
@@ -1746,10 +1741,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
-		factStampedMsg_.action = factStampedMsg_.DROP;
-		factStampedMsg_.objId = goal->objId;
-		factStampedMsg_.boxId = goal->boxId;
-		factStampedMsg_.arm = armGroup;
 
 		createDropTask(lastPlannedTask_, armGroup,goal->objId, goal->boxId);
 	}
@@ -1834,7 +1825,7 @@ void activeCb()
  *
  * \param goal Goal sent by supervisor. Void
  */
-void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal, ros::Publisher factsPublisher)
+void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal)
 {
 	pr2_motion_tasks_msgs::executeFeedback executeFeedback;
   	pr2_motion_tasks_msgs::executeResult executeResult;
