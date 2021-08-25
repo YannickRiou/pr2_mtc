@@ -190,6 +190,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
+			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -545,6 +546,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
+			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
@@ -726,6 +728,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK first arm", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(first_ikFrame_);
+			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
@@ -825,6 +828,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 			wrapper->setProperty("group",planGroup_second);
 			wrapper->setIKFrame(second_ikFrame_);
 			wrapper->setProperty("eef",second_eef_);
+			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			grasp->insert(std::move(wrapper));
@@ -957,6 +961,8 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage));
 			wrapper->setMaxIKSolutions(8);
 			wrapper->setMinSolutionDistance(1.0);
+	
+	 		// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)	
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->setIKFrame(tr,ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group" });
