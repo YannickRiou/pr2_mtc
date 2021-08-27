@@ -228,7 +228,7 @@ pr2_motion_tasks_msgs::planGoal planGoal;
   planClient.waitForServer(); //will wait for infinite time
   executeClient.waitForServer(); //will wait for infinite time
 
-  lookAt("box_B5",0,0,0);
+  lookAt("box_C3",0,0,0);
 
   ROS_INFO("Sending pick goal !");
 
@@ -236,7 +236,8 @@ pr2_motion_tasks_msgs::planGoal planGoal;
     lookAt("cube_BBCG",0,0,0);
     planGoal.planGroup = "left_arm";
     planGoal.objId = "cube_BBCG";
-    planGoal.action = "pick";
+    planGoal.action = "pick_dt";
+    planGoal.pose.header.frame_id = "cube_BBCG";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
@@ -251,6 +252,10 @@ pr2_motion_tasks_msgs::planGoal planGoal;
       return;
     }
   }
+
+  ROS_ERROR("BEFORE MOVE LEFT");
+
+
   if (executeClient.getResult()->error_code == 1)
   {
     planGoal.planGroup = "left_arm";
@@ -265,27 +270,32 @@ pr2_motion_tasks_msgs::planGoal planGoal;
       executeClient.sendGoal(executeGoal);
       executeClient.waitForResult();
     }
-     else
+    else
     {
       ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.planGroup);
       return;
     }
 
-   lookAt("cube_GGCB",0,0,0); 
- 
+
   if (executeClient.getResult()->error_code== 1)
   {
     lookAt("cube_GGCB",0,0,0);
     planGoal.planGroup = "right_arm";
     planGoal.objId = "cube_GGCB";
-    planGoal.action = "pick";
+    planGoal.action = "pick_dt";
+    planGoal.pose.header.frame_id = "cube_GGCB";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
+    ROS_ERROR("PLAN DONE");
 
     if(planClient.getResult()->error_code == 1)
     {
+      ROS_ERROR("BEFORE EXECUTE");
+
       executeClient.sendGoal(executeGoal);
       executeClient.waitForResult();
+
+      ROS_ERROR("AFTER EXECUTE");
     }
         else
     {
@@ -315,11 +325,11 @@ pr2_motion_tasks_msgs::planGoal planGoal;
   
   if (executeClient.getResult()->error_code == 1)
   {
-    lookAt("box_C1",0,0,0);
+    lookAt("box_C3",0,0,0);
     planGoal.planGroup = "left_arm";
     planGoal.objId = "cube_BBCG";
-    planGoal.boxId = "box_C1";
-    planGoal.action = "place";
+    planGoal.pose.header.frame_id = "box_C3";
+    planGoal.action = "place_dt";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
  
@@ -356,11 +366,11 @@ pr2_motion_tasks_msgs::planGoal planGoal;
   
   if (executeClient.getResult()->error_code == 1)
   {
-    lookAt("box_C2",0,0,0);
+    lookAt("box_C1",0,0,0);
     planGoal.planGroup = "right_arm";
     planGoal.objId = "cube_GGCB";
-    planGoal.boxId = "box_C2";
-    planGoal.action = "place";
+    planGoal.pose.header.frame_id = "box_C1";
+    planGoal.action = "place_dt";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
@@ -417,7 +427,7 @@ void pick_loop(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>&
   {
     planGoal.planGroup = "left_arm";
     planGoal.objId = "cube_GBCG";
-    planGoal.action = "pick";
+    planGoal.action = "pick_dt";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
@@ -437,8 +447,8 @@ void pick_loop(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction>&
 
     planGoal.planGroup = "left_arm";
     planGoal.objId = "cube_GBCG";
-    planGoal.boxId = "box_C3";
-    planGoal.action = "place";
+    planGoal.pose.header.frame_id = "box_C3";
+    planGoal.action = "place_dt";
     planClient.sendGoal(planGoal);
     planClient.waitForResult();
 
@@ -783,7 +793,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   lookAt("throw_box_pink",0,0,0);
   planGoal.planGroup = "left_arm";
   planGoal.objId = "cube_GBCG";
-  planGoal.boxId = "throw_box_pink";
+  planGoal.pose.header.frame_id = "throw_box_pink";
   planGoal.action = "drop";
   planClient.sendGoal(planGoal);
   planClient.waitForResult();
@@ -824,7 +834,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
 
   planGoal.planGroup = "right_arm";
   planGoal.objId = "cube_GBTG_2";
-  planGoal.boxId = "throw_box_pink";
+  planGoal.pose.header.frame_id = "throw_box_pink";
   planGoal.action = "drop";
   planClient.sendGoal(planGoal);
   planClient.waitForResult();
@@ -1052,8 +1062,8 @@ int main(int argc, char **argv)
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
   navTo.waitForServer();
 
-  actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
-  headScan.waitForServer();
+  //actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
+  //headScan.waitForServer();
 
  
   geometry_msgs::PoseStamped goalPose;
@@ -1062,13 +1072,13 @@ int main(int argc, char **argv)
   //home_body(plan,execute);
 
 
-  scenario_dual_arm(plan,execute,navTo,headScan);
+  //scenario_dual_arm(plan,execute,navTo,headScan);
 
   //scan_room(navTo,headScan);
 
   //pick_loop(plan,execute);
   
-  //scenario_replace_2(plan,execute);
+  scenario_replace_2(plan,execute);
 
   return 0;
 }
