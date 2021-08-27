@@ -81,7 +81,7 @@
 // Used to ask ontology to get all object on this support surface
 #define ROBOT_ONTOLOGY_NAME "pr2_robot"
 
-#define PLANNER "TRRT"
+#define PLANNER "RRTConnect"
 
 #define DEFAULT_LONGEST_VALID_SEGMENT_FRACTION 0.00001
 

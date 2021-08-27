@@ -139,7 +139,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 
 	{
 		// connect to place
-		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_}};
+		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect to place", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		connect->setPathConstraints(upright_constraint);
@@ -182,13 +182,13 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 
 		{
 			auto stage = std::make_unique<stages::GenerateCustomPose>("place the object");
-			stage->setCustomPoses({placePoses});
+			stage->setCustomPoses(placePoses);
 			stage->properties().configureInitFrom(Stage::PARENT);
 			stage->setMonitoredStage(current_state);
 			current_state = stage.get();
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
-			wrapper->setMaxIKSolutions(10);
+			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame_);
 			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
@@ -544,6 +544,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			stage->setMonitoredStage(current_state);
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
+			wrapper->properties().configureInitFrom(Stage::PARENT, { "group" });
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
 			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
@@ -1758,7 +1759,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	}
 	else
 	{
-		ROS_ERROR_STREAM("Unknown action provided. Available action are pick, pickDual, move, drop, place");
+		ROS_ERROR_STREAM("Unknown action provided. Available action are pick, pick_dt, pickDual, move, drop, place, place_dt");
 		// TODO handle this case
 		return;
 	}
@@ -1771,7 +1772,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		ROS_INFO_STREAM("Beginning plan of task [" << taskName << "] !");
 
-		if(lastPlannedTask_->plan(3) && !planServer_->isPreemptRequested())
+		if(lastPlannedTask_->plan(20) && !planServer_->isPreemptRequested())
 		{
 			ROS_INFO_STREAM("Planning of task [" << taskName << "] SUCCEEDED !");
 
@@ -1920,7 +1921,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 				}
 				else
 				{
-					//Detqch object from gripper 
+					//Detach object from gripper 
 					collisionAttObj.object.id = taskObjId_;
 					collisionAttObj.link_name = "";
 					collisionAttObj.object.operation = collisionAttObj.object.REMOVE;
@@ -1937,6 +1938,13 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 					executeServer_->setAborted(executeResult);
 				}
 			}		
+			else
+			{
+				executeResult.error_code = 1;
+				executeResult.action_end = ros::Time::now();
+				executeServer_->setSucceeded(executeResult);
+				ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
+			}
 		}
 	}
 	else
