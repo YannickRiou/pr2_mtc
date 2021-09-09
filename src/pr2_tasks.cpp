@@ -155,39 +155,11 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		placeTask->properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
 		place->properties().configureInitFrom(Stage::PARENT, {"eef", "group", "ik_frame"});
 
-		// Set an approach stage to avoid solutions with collisions
-		/*{
-			std::vector<geometry_msgs::PoseStamped> approachPlacePoses;
-			geometry_msgs::PoseStamped approach;
-			approach = placePose;
-			approach.pose.position.x = approach.pose.position.x-0.20;
-			approachPlacePoses.push_back(approach);
-
-			approach = placePose;
-			approach.pose.position.x = approach.pose.position.x+0.20;
-			approachPlacePoses.push_back(approach);
-
-			auto stage = std::make_unique<stages::GenerateCustomPose>("approach to pose");
-			stage->setCustomPoses(approachPlacePoses);
-			stage->properties().configureInitFrom(Stage::PARENT);
-			stage->setMonitoredStage(current_state);
-			current_state = stage.get();
-
-			auto wrapper = std::make_unique<stages::ComputeIK>("approch to pose IK", std::move(stage) );
-			wrapper->setMaxIKSolutions(10);
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
-			wrapper->setIKFrame(ikFrame_);
-			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
-			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
-			place->insert(std::move(wrapper));
-		}*/
-
 		{
 			auto stage = std::make_unique<stages::GenerateCustomPose>("place the object");
 			stage->setCustomPoses(placePoses);
 			stage->properties().configureInitFrom(Stage::PARENT);
 			stage->setMonitoredStage(current_state);
-			current_state = stage.get();
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(32);
