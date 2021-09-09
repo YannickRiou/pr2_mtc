@@ -1445,7 +1445,7 @@ void solutionCallback(const moveit_task_constructor_msgs::SolutionConstPtr& solu
  * \param in_pose Input pose unstransformed
  * \param out_pose Pose transformed into base_footprint frame
  */
-void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped* out_pose)
+void motionPlanning::getPoseIntoBasefootprint(geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped& out_pose)
 {
 	geometry_msgs::TransformStamped transform;
 
@@ -1459,7 +1459,7 @@ void motionPlanning::getPoseIntoBasefootprint(const geometry_msgs::PoseStamped i
 		return ;
 	}
 
-	tf2::doTransform(in_pose,*out_pose,transform);
+	tf2::doTransform(in_pose,out_pose,transform);
 }
 
  /**
