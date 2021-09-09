@@ -1904,10 +1904,10 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 				}
 				else if(onto_.individuals.getOn("pr2_robot","hasInRightHand").size() > 0 && taskArmGroup_ == "right_arm")
 				{
-			executeResult.error_code = 1;
-			executeResult.action_end = ros::Time::now();
-			executeServer_->setSucceeded(executeResult);
-			ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
+					executeResult.error_code = 1;
+					executeResult.action_end = ros::Time::now();
+					executeServer_->setSucceeded(executeResult);
+					ROS_INFO_STREAM("Task execution succeeded and returned: " << executeTask.getState().toString());
 				}
 				else
 				{
@@ -1927,7 +1927,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 					executeResult.error_code = -2;
 					executeServer_->setAborted(executeResult);
 				}
-			}		
+			}	
 			else
 			{
 				executeResult.error_code = 1;
