@@ -1451,6 +1451,9 @@ void motionPlanning::getPoseIntoBasefootprint(geometry_msgs::PoseStamped in_pose
 
 	try
 	{
+		if (in_pose.header.frame_id[0] == '/')
+			in_pose.header.frame_id = in_pose.header.frame_id.substr(1);
+
 		transform = tfBuffer_.lookupTransform("base_footprint",in_pose.header.frame_id, ros::Time(0),ros::Duration(5.0));
 	}
 	catch (tf2::TransformException &ex)
@@ -1587,7 +1590,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	if(goal->action == "pick")
 	{
 
-		getPoseIntoBasefootprint(goal->pose,&transformedPose);
+		getPoseIntoBasefootprint(goal->pose,transformedPose);
 
 		transformedPose.header.frame_id = "/base_footprint";
 
@@ -1676,7 +1679,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	else if(goal->action == "place")
 	{
 
-		getPoseIntoBasefootprint(goal->pose,&transformedPose);
+		getPoseIntoBasefootprint(goal->pose,transformedPose);
 
 		transformedPose.header.frame_id = "/base_footprint";
 		transformedPose.pose.position.z += 0.05;
