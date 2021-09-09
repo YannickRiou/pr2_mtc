@@ -1108,9 +1108,6 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		}
 	}
 
-	// Add support surface to also add the table to the world
-	//objIds.push_back(SUPPORT_SURFACE);
-
 	furnitureIds = onto_.individuals.getType("Furniture");
 	ROS_INFO_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
 
@@ -1134,30 +1131,37 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 			// UWDS publish with frame_id as /map so transform to base_footprint
 			if(!srv.response.poses[j].header.frame_id.empty())
 			{
-				// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
-				// Will wait for 1 seconds
-				if(srv.response.poses[j].header.frame_id != "/base_footprint")
-				{
-					try
-					{
-					mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[j].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
-					}
-					catch (tf2::TransformException &ex)
-					{
-						ROS_WARN("%s",ex.what());
-						return 1;
-					}
-				}
-
-				// Only ask if new object
+				// Check object is already known and if a mesh is already in the database
 				if (objMeshMap_.find(furnitureIds[j]) != objMeshMap_.end())
 				{
 					// Mesh URI is already known so get it from the map
 					m = shapes::createMeshFromResource(objMeshMap_.at(furnitureIds[j]));
+
+					shapes::constructMsgFromShape(m, mesh_msg);
+					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+					// Add the mesh to the Collision object message
+					collisionObj.meshes.push_back(mesh);
+
+					if(srv.response.poses[j].header.frame_id != "/base_footprint")
+					{
+						// Transform pose given by UWDS from map to basefootprint
+						colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
+						colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+
+						getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+												
+						collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+					}
+					else
+					{
+						collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
+					}
 				}
-				else
+				// Check if object is a mesh
+				else if (onto_.individuals.getOn(furnitureIds[j],"hasMesh").size() > 0)
 				{
-					// Mesh URI is not known so ask ontologenius for it
+					// Ask ontologenius for mesh URI
 					meshTemp = onto_.individuals.getOn(furnitureIds[j],"hasMesh");
 					if(meshTemp.size() > 0)
 					{
@@ -1170,49 +1174,49 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							meshURI.erase(pos, std::string("string#").length());
 						}
 
-						ROS_DEBUG_STREAM("ObjId is [" << furnitureIds[j] << "]" );
-						ROS_DEBUG_STREAM("MESH_URI is [" << meshURI << "]" );
+							ROS_INFO_STREAM("furnitureId is [" << furnitureIds[j] << "]" );
+							ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
 
 						m = shapes::createMeshFromResource(meshURI);
 
 						// And add it to the map
 						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)furnitureIds[j],(std::string)meshURI));
+
+						shapes::constructMsgFromShape(m, mesh_msg);
+						mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+						// Add the mesh to the Collision object message
+						collisionObj.meshes.push_back(mesh);
+
+						if(srv.response.poses[j].header.frame_id != "/base_footprint")
+						{
+							// Transform pose given by UWDS from map to basefootprint
+							colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
+							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+													
+							collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+						}
+						else
+						{
+							collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
+						}
 					}
-					else
-					{
-						ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius for furniture with ID : [" + furnitureIds[j] + "]...");
-					}
-				}
-
-				shapes::constructMsgFromShape(m, mesh_msg);
-				mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-
-				// Add the mesh to the Collision object message
-				collisionObj.meshes.push_back(mesh);
-
-				// Set object id
-				collisionObj.id = furnitureIds[j];
-
-				if(srv.response.poses[j].header.frame_id != "/base_footprint")
-				{
-					// Transform pose given by UWDS from map to basefootprint
-					colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
-					tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
-					collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
 				}
 				else
 				{
-					collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
+					ROS_ERROR_STREAM("No mesh specified for furniture with id [" << furnitureIds[j] << "]");
+					continue;
 				}
 
-				ROS_INFO_STREAM("Successfully transformed pose of furniture with ID [" + furnitureIds[j] + "]");
-
+				// Set object id
+				collisionObj.id = furnitureIds[j];
 
 				// Set frame_id to "base_footprint" as it has been transformed
 				collisionObj.header.frame_id = "base_footprint";
 
 				collisionObj.operation = collisionObj.ADD;
-
+			
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
 				ROS_INFO_STREAM("Successfully added to scene furniture with ID [" + furnitureIds[j] + "]");
@@ -1248,30 +1252,38 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				// UWDS publish with frame_id as /map so transform to base_footprint
 				if(!srv.response.poses[i].header.frame_id.empty())
 				{
-					// Ask the transform between map and basefootprint (as UWDS give object into the map frame)
-						// Will wait for 5 seconds
-					if(srv.response.poses[i].header.frame_id != "/base_footprint")
-					{
-						try
-						{
-						mainTransform_ = tfBuffer_.lookupTransform("base_footprint",srv.response.poses[i].header.frame_id.erase(0, 1), ros::Time(0),ros::Duration(5.0));
-						}
-						catch (tf2::TransformException &ex)
-						{
-							ROS_WARN("%s",ex.what());
-							return 1;
-						}
-					}
-
-					// Only ask if new object
+					
+					// Check object is already known and if a mesh is already in the database
 					if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
 					{
 						// Mesh URI is already known so get it from the map
 						m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
+
+						shapes::constructMsgFromShape(m, mesh_msg);
+						mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+						// Add the mesh to the Collision object message
+						collisionObj.meshes.push_back(mesh);
+
+						if(srv.response.poses[i].header.frame_id != "/base_footprint")
+						{
+							// Transform pose given by UWDS from map to basefootprint
+							colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+
+							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+													
+							collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+						}
+						else
+						{
+							collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+						}
 					}
-					else
+					// Check if object is a mesh
+					else if (onto_.individuals.getOn(objIds[i],"hasMesh").size() > 0)
 					{
-						// Mesh URI is not known so ask ontologenius for it
+						// Ask ontologenius for mesh URI
 						meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
 						if(meshTemp.size() > 0)
 						{
@@ -1291,98 +1303,99 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 							// And add it to the map
 							objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
+
+							shapes::constructMsgFromShape(m, mesh_msg);
+							mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
+
+							// Add the mesh to the Collision object message
+							collisionObj.meshes.push_back(mesh);
+
+							if(srv.response.poses[i].header.frame_id != "/base_footprint")
+							{
+								// Transform pose given by UWDS from map to basefootprint
+								colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+								colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+
+								getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+														
+								collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
+							}
+							else
+							{
+								collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
+							}
+						}
+					}
+					// Check if object has shape defined in ontology
+					else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
+					{
+						ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");	
+						ROS_WARN_STREAM("Asking for dimensions if objects comes from Robosherlock...");
+
+						collisionObj.primitives.resize(1);
+
+						if(srv.response.poses[i].header.frame_id != "/base_footprint")
+						{
+							// Transform pose given by UWDS from map to basefootprint
+							colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+
+							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+													
+							collisionObj.primitive_poses.push_back(colliObjPosetransformed.pose);
 						}
 						else
 						{
-							ROS_ERROR_STREAM("Error while updating the world, object has no meshs...");
+							collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
 						}
+
+						// Set the type of object 
+						if(onto_.individuals.getOn(objIds[i],"hasShape")[0] == "box")
+						{
+							ROS_WARN_STREAM("It's a box !!");
+
+							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
+							
+							collisionObj.primitives[0].dimensions.resize(3);
+							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionX")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
+							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
+							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);
+							
+							//ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- X : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
+							//ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Y : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
+							//ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Z : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);																ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Z : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);								
+						}
+						else if (onto_.individuals.getOn(objIds[i],"hasShape")[0] == "round")
+						{
+							ROS_WARN_STREAM("It's a cylinder !!");
+
+							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
+							
+							collisionObj.primitives[0].dimensions.resize(2);
+							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]);
+							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]);
+
+							collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/=2.0;
+						}
+						else
+						{
+							ROS_ERROR("No shape specified for Robosherlock objects....");
+							continue;
+						}	
 					}
-
-							/*
-							else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
-							{
-								// TODO: No mesh means the object is from robosherlock, so we need to ask for dimensions
-								ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");
-								ROS_WARN_STREAM("Trying to ask for dimensions if objects comes from Robosherlock...");
-
-								collisionObj.primitives.resize(1);
-
-								// Set the type of object 
-								if(onto_.individuals.getOn(objIds[i],"hasShape")[0] == "box")
-								{
-									ROS_WARN_STREAM("It's a box !!");
-
-									collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-									
-									collisionObj.primitives[0].dimensions.resize(3);
-									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionX")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
-									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
-									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);
-									
-									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- X : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
-									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Y : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
-									ROS_INFO_STREAM("Dimensions of ID [" << objIds[i] << "] ---- Z : " << collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);								
-								}
-								else if (onto_.individuals.getOn(objIds[i],"hasShape")[0] == "round")
-								{
-									ROS_WARN_STREAM("It's a cylinder !!");
-
-									collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
-									
-									collisionObj.primitives[0].dimensions.resize(2);
-									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]);
-									sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]);
-
-									collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/=2.0;
-								}
-								else
-								{
-									ROS_ERROR("No shape specified for Robosherlock objects....");
-								}	
-
-								if(srv.response.poses[i].header.frame_id != "/base_footprint")
-								{
-									// Transform pose given by UWDS from map to basefootprint
-									colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-									tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
-									collisionObj.primitive_poses.push_back(colliObjPosetransformed.pose);
-								}
-								else
-								{
-									collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
-								}
-					            // Set frame_id to "base_footprint" as it has been transformed
-								collisionObj.header.frame_id = "/base_footprint";
-
-								ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
-							}*/
+					else
+					{
+						ROS_ERROR_STREAM("No shape, no mesh specified for object with id [" << objIds[i] << "]");
+						continue;
+					}
 												
 					// Set object id
 					collisionObj.id = objIds[i];
 
 					collisionObj.operation = collisionObj.ADD;
-
-					shapes::constructMsgFromShape(m, mesh_msg);
-					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-
-					// Add the mesh to the Collision object message
-					collisionObj.meshes.push_back(mesh);
-
-					if(srv.response.poses[i].header.frame_id != "/base_footprint")
-					{
-						// Transform pose given by UWDS from map to basefootprint
-						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-						tf2::doTransform(colliObjPoseUntransformed,colliObjPosetransformed,mainTransform_);
-						collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
-					}
-					else
-					{
-						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
-					}
+				
 					// Set frame_id to "base_footprint" as it has been transformed
 					collisionObj.header.frame_id = "base_footprint";
-
-					ROS_INFO_STREAM("Successfully transformed pose of object with ID [" + objIds[i] + "]");
 
 					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 					planning_scene_interface_.applyCollisionObject(collisionObj);
