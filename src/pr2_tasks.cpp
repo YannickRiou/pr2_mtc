@@ -60,6 +60,8 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	
 	ROS_INFO("[Plan and execute action servers started successfully]");
 
+
+	debug_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("pr2_debug", 10, true);
 }
 
 // Class destructor

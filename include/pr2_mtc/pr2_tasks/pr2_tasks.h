@@ -131,6 +131,7 @@ class motionPlanning
         std::string taskArmGroup_;
         std::string taskObjId_;
 
+        ros::Publisher debug_pose_pub_;
 
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>> planServer_;
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>> executeServer_;
