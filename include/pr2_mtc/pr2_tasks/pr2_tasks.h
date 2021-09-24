@@ -74,6 +74,8 @@
 #include <pr2_motion_tasks_msgs/planAction.h>
 #include <pr2_motion_tasks_msgs/executeAction.h>
 
+#include <overworld/BoundingBox.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +89,7 @@
 
 #define GET_POSE_TOPIC "/overworld/getPose"
 
+#define GET_BOUNDINGBOX_TOPIC "/pr2_robot/getBoundingBox"
 
 #define NUMBER_OF_MAX_SOLUTION 50.0
 
@@ -141,6 +144,9 @@ class motionPlanning
 
         // Service to get object pose from underworld
         ros::ServiceClient getPoseSrv_;
+
+        // Service to get object size from underworld
+        ros::ServiceClient getBoundingBoxSrv_;
 
         OntologyManipulator onto_;
 

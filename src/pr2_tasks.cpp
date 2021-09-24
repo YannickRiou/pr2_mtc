@@ -50,6 +50,11 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 
 	ROS_INFO("[Node connected to getPose service]");
 
+	getBoundingBoxSrv_ = nh_.serviceClient<overworld::BoundingBox>(GET_BOUNDINGBOX_TOPIC);
+	ros::service::waitForService(GET_BOUNDINGBOX_TOPIC, -1);
+
+	ROS_INFO("[Node connected to getBoundingBox service]");
+
 	planServer_ = std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>>(nh_, "plan", boost::bind(&motionPlanning::planCallback,this, _1, getPoseSrv_), false);
 	executeServer_ =  std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>>(nh_, "execute", boost::bind(&motionPlanning::executeCallback,this, _1), false);
 
@@ -882,6 +887,11 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
 	pipelinePlanner_->setPlannerId(PLANNER);
 
+
+	overworld::BoundingBox boundingBoxSrv;
+	boundingBoxSrv.request.object_id = object;
+	getBoundingBoxSrv_.call(boundingBoxSrv);
+
 	//Start state
 	Stage* current_state = nullptr;
 	auto initial = std::make_unique<stages::CurrentState>("current state");
@@ -926,6 +936,8 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			auto stage = std::make_unique<stages::GenerateGraspPose>("generate grasp pose");
 			stage->properties().configureInitFrom(Stage::PARENT);
 			stage->setPreGraspPose(pregrasp);
+
+			stage->setObjectHeight(boundingBoxSrv.response.z);
 			stage->setObject(object);
 			stage->setAngleDelta(M_PI / 4);
 			stage->setMonitoredStage(current_state);  // Hook into current state

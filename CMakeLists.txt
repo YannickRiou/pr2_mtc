@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   rviz_marker_tools
   ontologenius
   pr2_motion_tasks_msgs
+  overworld
 )
 
 ## System dependencies are found with CMake's conventions

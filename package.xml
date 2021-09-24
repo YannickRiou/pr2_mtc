@@ -61,6 +61,8 @@
   <build_depend>dual_arm_manipulation</build_depend>
   <build_depend>move_group_x</build_depend>
   <build_depend>dt_head_gestures</build_depend>
+  <build_depend>overworld</build_depend>
+
 
 
   <build_export_depend>eigen_conversions</build_export_depend>
