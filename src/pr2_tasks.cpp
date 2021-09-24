@@ -1403,7 +1403,7 @@ void motionPlanning::taskStatisticCallback(const moveit_task_constructor_msgs::T
 	pr2_motion_tasks_msgs::planFeedback planFeedback;
 	int progressValue=0;
 
-	progressValue = (taskStat->stages[0].solved.size()/10.0)*100;
+	progressValue = (int)(((double)taskStat->stages[0].solved.size()/NUMBER_OF_MAX_SOLUTION)*100.0);
 
 	planFeedback.status = progressValue;
 	planServer_->publishFeedback(planFeedback);
@@ -1763,7 +1763,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		ROS_INFO_STREAM("Beginning plan of task [" << taskName << "] !");
 
-		if(lastPlannedTask_->plan(20) && !planServer_->isPreemptRequested())
+		if(lastPlannedTask_->plan(NUMBER_OF_MAX_SOLUTION) && !planServer_->isPreemptRequested())
 		{
 			ROS_INFO_STREAM("Planning of task [" << taskName << "] SUCCEEDED !");
 

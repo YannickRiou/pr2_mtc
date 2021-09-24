@@ -87,6 +87,9 @@
 
 #define GET_POSE_TOPIC "/overworld/getPose"
 
+
+#define NUMBER_OF_MAX_SOLUTION 50.0
+
 using namespace moveit::task_constructor;
 
 class motionPlanning
