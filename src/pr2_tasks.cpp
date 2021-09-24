@@ -1480,6 +1480,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	if((goal->action == "pick") || (goal->action == "pick_dt") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
 	{
+		updateWorldResult = updateWorld(udwClient);
+
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
 		{
@@ -1499,7 +1501,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			}
 		}
 
-		updateWorldResult = updateWorld(udwClient);
 		if(updateWorldResult == 1)
 		{
 			planResult.error_code = -4;
