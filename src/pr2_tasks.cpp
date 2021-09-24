@@ -196,7 +196,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 			stage->setIKFrame(ikFrame_);
 
 			geometry_msgs::Vector3Stamped vec;
-			vec.header.frame_id = "base_footprint";
+			vec.header.frame_id = ikFrame_;
 			vec.vector.x = -1.0;
 			stage->setDirection(vec);
 			place->insert(std::move(stage));
@@ -506,7 +506,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			stage->setIKFrame(ikFrame_);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
-			vec.header.frame_id = "base_footprint";
+			vec.header.frame_id = ikFrame_;
 			vec.vector.x = 1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
@@ -597,7 +597,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			stage->setIKFrame(ikFrame_);
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
-			vec.header.frame_id = "base_footprint";
+			vec.header.frame_id = ikFrame_;
 			vec.vector.x = -1.0;
 			stage->setDirection(vec);
 			grasp->insert(std::move(stage));
