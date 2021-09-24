@@ -942,8 +942,6 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			stage->setAngleDelta(M_PI / 4);
 			stage->setMonitoredStage(current_state);  // Hook into current state
 
-			Eigen::Isometry3d tr = Eigen::Isometry3d::Identity();
-			//tr.translation() = Eigen::Vector3d(0.0,0.0,0.00);
 			// Compute IK
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage));
 			wrapper->setMaxIKSolutions(8);
@@ -951,7 +949,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 	
 	 		// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)	
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
-			wrapper->setIKFrame(tr,ikFrame_);
+			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			pick->insert(std::move(wrapper));
