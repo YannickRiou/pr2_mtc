@@ -28,7 +28,6 @@
 
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
-
 // Moveit  related include
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -36,6 +35,9 @@
 
 #include <moveit_msgs/CollisionObject.h>
 
+//#include <moveit/collision_detection_bullet/collision_env_bullet.h>
+//#include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
+//#include <moveit/collision_detection/collision_tools.h>
 
 // TF2 related include
 #include <tf2_ros/transform_listener.h>
@@ -83,7 +85,7 @@
 // Used to ask ontology to get all object on this support surface
 #define ROBOT_ONTOLOGY_NAME "pr2_robot"
 
-#define PLANNER "RRTConnect"
+#define PLANNER "TRRT"
 
 #define DEFAULT_LONGEST_VALID_SEGMENT_FRACTION 0.00001
 
@@ -91,7 +93,7 @@
 
 #define GET_BOUNDINGBOX_TOPIC "/pr2_robot/getBoundingBox"
 
-#define NUMBER_OF_MAX_SOLUTION 50.0
+#define NUMBER_OF_MAX_SOLUTION 10.0
 
 using namespace moveit::task_constructor;
 
