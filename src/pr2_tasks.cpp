@@ -1960,14 +1960,16 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickTaskCustomDual(lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
 	}
 	else if(goal->action == "pickAuto")
 	{
-		taskName = goal->action + "Auto_" + goal->objId;
+		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickTask(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0]);
 	}
 	//====== PLACE ======//
@@ -1988,7 +1990,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
-
+		lastPlannedTask_->setName(taskName);
 		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
 	else if(goal->action == "place_dt")
@@ -2018,7 +2020,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
-
+		lastPlannedTask_->setName(taskName);
 		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
 	//====== MOVE ======//
@@ -2027,6 +2029,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 
 		if(goal->predefined_pose_id.empty())
 		{
@@ -2052,6 +2055,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 
+		lastPlannedTask_->setName(taskName);
 
 		createDropTask(lastPlannedTask_, taskArmGroup_,goal->objId, goal->pose.header.frame_id);
 	}
@@ -2160,7 +2164,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
-		ROS_INFO_STREAM("Sending goal to execute the previous task ("<< lastPlannedTask_->id() << ")");
+		ROS_INFO_STREAM("Sending goal to execute the previous task ("<< lastPlannedTask_->name() << ")");
 
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
 		executeFeedback.action_start = ros::Time::now();
