@@ -1031,16 +1031,95 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
 			stage->setMinMaxDistance(0.01, 0.20);
 			stage->setIKFrame(ikFrame_);
+
 			// Set upward direction
 			geometry_msgs::Vector3Stamped vec;
 			vec.header.frame_id = ikFrame_;
 			vec.vector.x = -1.0;
 			stage->setDirection(vec);
 			pick->insert(std::move(stage));
+
 		}
 
 		// Add grasp container to task
-		pickTask->add(std::move(pick));
+		pickPlaceTask->add(std::move(pick));
+	}
+
+	{
+		// connect to place
+		stages::Connect::GroupPlannerVector planners =  {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
+		auto connect = std::make_unique<stages::Connect>("connect to place", planners);
+		connect->setProperty("group",planGroup);
+		connect->setCostTerm(moveit::task_constructor::cost::Clearance{});
+		connect->properties().configureInitFrom(Stage::PARENT, {"eef", "group", "ik_frame"});
+		pickPlaceTask->add(std::move(connect));
+	}
+
+	{
+		auto place = std::make_unique<SerialContainer>("place object");
+		pickPlaceTask->properties().exposeTo(place->properties(), { "eef", "group", "ik_frame"});
+		place->properties().configureInitFrom(Stage::PARENT, {"eef", "group", "ik_frame"});
+
+		/****************************************************
+ 		 ---- *               Approach Object                    *
+		 ***************************************************/
+		{
+			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesianPlanner_);
+			stage->properties().set("link", ikFrame_);
+			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
+			stage->setMinMaxDistance(0.01, 0.15);
+
+			// Set hand forward direction
+			geometry_msgs::Vector3Stamped vec;
+			vec.header.frame_id = ikFrame_;
+			vec.vector.x = 1.0;
+			stage->setDirection(vec);
+			place->insert(std::move(stage));
+		}
+
+		{
+			auto stage = std::make_unique<stages::GeneratePlacePose>("generate place pose");
+			stage->setPose(placePose);
+			stage->setObject(object);
+			stage->properties().configureInitFrom(Stage::PARENT);
+			stage->setMonitoredStage(current_state);
+
+			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK place", std::move(stage) );
+			wrapper->setMaxIKSolutions(32);
+			wrapper->setIKFrame(ikFrame_);
+			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
+			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
+			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
+			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
+			place->insert(std::move(wrapper));
+		}
+
+		{
+			auto stage = std::make_unique<stages::MoveTo>("release object", gripper_planner_);
+			stage->setGroup(eef_);
+			stage->setGoal(ungrasp);
+			place->insert(std::move(stage));
+		}
+
+		{
+			auto stage = std::make_unique<stages::ModifyPlanningScene>("detach object");
+			stage->detachObject(object, ikFrame_);
+			place->insert(std::move(stage));
+		}
+
+		{
+			auto stage = std::make_unique<stages::MoveRelative>("retreat from object", cartesianPlanner_);
+			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
+			stage->setMinMaxDistance(0.02, 0.20);
+			stage->setIKFrame(ikFrame_);
+
+			geometry_msgs::Vector3Stamped vec;
+			vec.header.frame_id = ikFrame_;
+			vec.vector.x = -1.0;
+			stage->setDirection(vec);
+			place->insert(std::move(stage));
+		}
+		pickPlaceTask->add(std::move(place));
 	}
 }
 
