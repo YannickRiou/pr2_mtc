@@ -29,6 +29,10 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	// Load the common kinematic model of the robot that will be used when creating a task with MTC
 	kinematic_model_ = robot_model_loader_.getModel();
 
+	//auto g_planning_scene = std::make_unique<planning_scene::PlanningScene>(robot_model_loader_.getModel());
+
+	//g_planning_scene->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(), true /* exclusive */);
+
 	// Create the common cartesian planner that will be used for translation movement when creating task with MTC
 	cartesianPlanner_ = std::make_shared<solvers::CartesianPath>();
 	cartesianPlanner_->setProperty("jump_threshold", 0.00);
@@ -1885,6 +1889,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickPlace")
