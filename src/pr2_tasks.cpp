@@ -707,6 +707,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 
 			auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK first arm", std::move(stage) );
 			wrapper->setMaxIKSolutions(10);
+			wrapper->setProperty("group",planGroup_first);
 			wrapper->setIKFrame(first_ikFrame_);
 			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
 			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
@@ -900,7 +901,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 
 	{
 		// connect to pick
-		stages::Connect::GroupPlannerVector planners = {{eef_, pipelinePlanner_}, {planGroup, gripper_planner_}};
+		stages::Connect::GroupPlannerVector planners = {{eef_,gripper_planner_ }, {planGroup,pipelinePlanner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		pickTask->add(std::move(connect));
