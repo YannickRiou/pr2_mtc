@@ -149,7 +149,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect to place", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		connect->setPathConstraints(upright_constraint);
+		//connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		placeTask->add(std::move(connect));
 	}
