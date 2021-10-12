@@ -192,7 +192,7 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		{
 			auto stage = std::make_unique<stages::MoveRelative>("retreat from object", cartesianPlanner_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.15, 0.20);
+			stage->setMinMaxDistance(0.02, 0.20);
 			stage->setIKFrame(ikFrame_);
 
 			geometry_msgs::Vector3Stamped vec;
@@ -918,7 +918,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			auto stage = std::make_unique<stages::MoveRelative>("approach object", cartesianPlanner_);
 			stage->properties().set("link", ikFrame_);
 			stage->properties().configureInitFrom(Stage::PARENT, { "group" });
-			stage->setMinMaxDistance(0.10, 0.15);
+			stage->setMinMaxDistance(0.01, 0.15);
 
 			// Set hand forward direction
 			geometry_msgs::Vector3Stamped vec;
@@ -939,7 +939,7 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 
 			stage->setObjectHeight(boundingBoxSrv.response.z);
 			stage->setObject(object);
-			stage->setAngleDelta(M_PI / 4);
+			stage->setAngleDelta(M_PI / 2);
 			stage->setMonitoredStage(current_state);  // Hook into current state
 
 			// Compute IK
