@@ -1885,6 +1885,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickPlace")
@@ -1900,6 +1901,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickPlaceTask(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPose);
 	}
 	else if(goal->action == "pick_dt")
@@ -1931,6 +1933,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_->setName(taskName);
 		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	else if(goal->action == "pickDual")
