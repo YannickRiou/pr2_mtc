@@ -2209,7 +2209,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		{
 			// If task name was a pick or place, check if something has been really attached/detached
 			// If not delete object attached from moveit world
-			if(lastPlannedTask_->name().find("pick") != std::string::npos && lastPlannedTask_->name().find("lace") == std::string::npos)
+			if(lastPlannedTask_->name().find("pick") != std::string::npos && lastPlannedTask_->name().find("lace") != std::string::npos && lastPlannedTask_->name().find("dual") == std::string::npos)
 			{
 				if(onto_.individuals.getOn("pr2_robot","hasInLeftHand").size() > 0 && taskArmGroup_ == "left_arm")
 				{
