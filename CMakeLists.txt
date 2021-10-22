@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   ontologenius
   pr2_motion_tasks_msgs
   overworld
+  base_nav
 )
 
 ## System dependencies are found with CMake's conventions
