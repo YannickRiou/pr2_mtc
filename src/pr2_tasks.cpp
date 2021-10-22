@@ -1425,6 +1425,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 							collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
 						}
 					}
+					else
+					{ 
+						ROS_ERROR_STREAM("[updateWorld] Error when getting mesh URI from Ontologenius");
+						continue;
+					}
 				}
 				else
 				{
@@ -1549,6 +1554,11 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 							{
 								collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 							}
+						}
+						else
+						{ 
+							ROS_ERROR_STREAM("[updateWorld] Error when getting mesh URI from Ontologenius");
+							continue;
 						}
 					}
 					// Check if object has shape defined in ontology
