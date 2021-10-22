@@ -62,6 +62,8 @@
   <build_depend>move_group_x</build_depend>
   <build_depend>dt_head_gestures</build_depend>
   <build_depend>overworld</build_depend>
+  <build_depend>base_nav</build_depend>
+
 
 
 
@@ -88,6 +90,8 @@
   <exec_depend>rviz_marker_tools</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>base_nav</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
