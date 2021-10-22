@@ -138,11 +138,11 @@ class motionPlanning
 
         void createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId);
 
-        int updateWorld(ros::ServiceClient& udwClient);
+        int updateWorld(ros::ServiceClient& saClient);
 
         void getPoseIntoBasefootprint(const geometry_msgs::PoseStamped in_pose, geometry_msgs::PoseStamped& out_pose);
 
-        void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient);
+        void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& saClient);
 
         void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal);
 

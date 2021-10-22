@@ -1327,17 +1327,17 @@ void motionPlanning::createPickPlaceTask(std::unique_ptr<moveit::task_constructo
 }
 
  /**
- * \fn void updateWorld(ros::ServiceClient& udwClient)
- * \brief Function to ask ontologenius about object id/meshes that are on the table then ask underworld their positions, and add them to planning scene
+ * \fn void motionPlanning::updateWorld(ros::ServiceClient& saClient)
+ * \brief Function to ask ontologenius about object id/meshes that are on the table then ask the situation assessment their positions, and add them to moveit planning scene
  *
- * \param udwClient Handle on the underworld service to get poses of the object in the scene.
+ * \param saClient Handle on the situation assesment service to get poses of the object in the scene.
  *
  * \return 0 if everything went fine,
  * 		   1 if failed to get transform between map and base_footprint
  * 		   2 if failed to get meshes from ontologenius
- * 		   3 if failed to get Ids from Underworld service
+ * 		   3 if failed to get Ids from situation assesment service
  */
-int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
+int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 {
 	ROS_INFO_STREAM("[updateWorld]=========[UPDATE OF THE WORLD INCOMING]=========");
 
@@ -1403,7 +1403,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	
 		// Ask situation assesment about poses 
 		srv.request.ids = furnitureIds;
-		if (udwClient.call(srv))
+		if (saClient.call(srv))
 		{
 			// Clear vector to be able to reuse it
 			collisionObj.meshes.clear();
@@ -1519,14 +1519,14 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		}
 		else
 		{
-			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for furniture !]==================");
+			ROS_ERROR_STREAM("[updateWorld] =========[Call of situation assement service failed to get pose for furniture !]=========");
 			return -6;
 		}
 
 		// Ask situation assesment about poses
 		// of object that are on the previous furniture
 		srv.request.ids = objIds;
-		if (udwClient.call(srv))
+		if (saClient.call(srv))							// Transform pose given by UWDS from map to basefootprint
 		{
 			for (int i=0; i < objIds.size(); i++)
 			{
@@ -1691,7 +1691,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 		}
 		else
 		{
-			ROS_ERROR_STREAM("===============[Call of UWDS service to get pose failed for objects !]==================");
+			ROS_ERROR_STREAM("[updateWorld] =========[Call of situation assesment service failed to get pose for objects !]=========");
 			return -6 ;
 		}
 	
@@ -1759,13 +1759,13 @@ void motionPlanning::getPoseIntoBasefootprint(geometry_msgs::PoseStamped in_pose
 }
 
  /**
- * \fn void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient)
+ * \fn void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& saClient)
  * \brief Callback that is called when supervisor ask for a plan
  *
- * \param goal Goal sent by supervisor. Contains action to be planned (pick, place, move), planGroup to be used if moving, object if pick, box if place
- * \param udwClient Service handle to pass on to the update world function
+ * \param goal Goal to be executed. Contains action to be planned (pick, place, move) and other parameter depending on the action
+ * \param saClient Service handle to pass on to the update world function
  */
-void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& udwClient)
+void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& saClient)
 {
  	pr2_motion_tasks_msgs::planResult planResult;
 
@@ -1786,7 +1786,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	if((goal->action == "pick") || (goal->action == "pick_dt") ||  (goal->action == "pickPlace") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
 	{
-		updateWorldResult = updateWorld(udwClient);
+		// Update the world before doing anything
+		updateWorldResult = updateWorld(saClient);
 
 		// Ask the box in which the cube is 
 		if (goal->action != "updateWorld")
