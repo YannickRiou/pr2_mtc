@@ -1728,12 +1728,18 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	std::vector<std::string> objInBoxIds;
 	moveit_msgs::CollisionObject collisionObj;
 
-
 	int updateWorldResult = 0;
 
 	std::string taskName;
 
-	if((goal->action == "pick") || (goal->action == "pick_dt") ||  (goal->action == "pickPlace") || (goal->action == "pickAuto") ||  (goal->action == "pickDual") || (goal->action == "updateWorld") )
+	// Only update the world for pick or drop actions
+	if((goal->action == "pick")        || 
+	   (goal->action == "pick_dt")     ||
+	   (goal->action == "pickPlace")   ||
+	   (goal->action == "pickAuto")    ||
+	   (goal->action == "pickDual")    || 
+	   (goal->action == "updateWorld") || 
+	   (goal->action == "drop"))
 	{
 		// Update the world before doing anything
 		updateWorldResult = updateWorld(saClient);
