@@ -1763,19 +1763,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			}
 		}
 
-		if(updateWorldResult == 1)
-		{
-			planResult.error_code = -4;
-			planServer_->setAborted(planResult);
-			return;
-		}
-		else if(updateWorldResult == 2)
-		{
-			planResult.error_code = -5;
-			planServer_->setAborted(planResult);
-			return;
-		}
-		else if(updateWorldResult == 3)
+		if(updateWorldResult == -6)
 		{
 			planResult.error_code = -6;
 			planServer_->setAborted(planResult);
@@ -1783,7 +1771,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		}
 		else if (goal->action == "updateWorld")
 		{
-			planResult.error_code = 1;
+			planResult.error_code = updateWorldResult;
 			planServer_->setSucceeded(planResult);
 			return;
 		}
