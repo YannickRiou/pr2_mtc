@@ -93,20 +93,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 
 	placeTask->setProperty("object",object);
 
-	moveit_msgs::Constraints upright_constraint;
-	upright_constraint.name = "gripper_upright";
-	upright_constraint.orientation_constraints.resize(1);
-	moveit_msgs::OrientationConstraint& c= upright_constraint.orientation_constraints[0];
-	c.header.frame_id= "base_footprint";
-	c.orientation.x= 0.0;
-	c.orientation.y= 0.0;
-	c.orientation.z= 0.0;
-	c.orientation.w= 1.0;
-	c.absolute_x_axis_tolerance= 0.3925;
-	c.absolute_y_axis_tolerance= 0.3925;
-	c.absolute_z_axis_tolerance= 0.785;
-	c.weight= 1.0;
-
 	if(planGroup == "left_arm")
 	{
 		placeTask->setProperty("group",planGroup);
@@ -114,9 +100,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 	    eef_ = "left_gripper";
 		ikFrame_ = "l_gripper_tool_frame";
 		ungrasp = "left_open";
-
-		c.link_name= "l_gripper_tool_frame";
-
 	}
 	else if(planGroup == "right_arm")
 	{
@@ -125,9 +108,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		eef_ = "right_gripper";
 		ikFrame_ = "r_gripper_tool_frame";
 		ungrasp = "right_open";
-
-		c.link_name= "r_gripper_tool_frame";
-
 	}
 
 	// Increase precision for place to avoid collision
@@ -155,7 +135,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect to place", planners);
 		connect->properties().configureInitFrom(Stage::PARENT);
-		//connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
 		placeTask->add(std::move(connect));
 	}
@@ -440,20 +419,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 	std::string pregrasp;
 	std::string postgrasp;
 
-	moveit_msgs::Constraints upright_constraint;
-	upright_constraint.name = "gripper_upright";
-	upright_constraint.orientation_constraints.resize(1);
-	moveit_msgs::OrientationConstraint& c= upright_constraint.orientation_constraints[0];
-	c.header.frame_id= "base_footprint";
-	c.orientation.x= 0.0;
-	c.orientation.y= 0.0;
-	c.orientation.z= 0.0;
-	c.orientation.w= 1.0;
-	c.absolute_x_axis_tolerance= 0.3925;
-	c.absolute_y_axis_tolerance= 0.3925;
-	c.absolute_z_axis_tolerance= 0.785;
-	c.weight= 1.0;
-
 	pickTask->setProperty("object",object);
 
 	if(planGroup == "left_arm")
@@ -464,8 +429,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		pregrasp = "left_open";
 		postgrasp = "left_close";
 		ikFrame_ = "l_gripper_tool_frame";
-
-		c.link_name= "l_gripper_tool_frame";
 	}
 	else if(planGroup == "right_arm")
 	{
@@ -475,8 +438,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		pregrasp = "right_open";
 		postgrasp = "right_close";
 		ikFrame_ = "r_gripper_tool_frame";
-
-		c.link_name= "r_gripper_tool_frame";
 	}
 
 	// Increase precision to avoid collision
@@ -506,9 +467,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		// connect to pick
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
-		//connect->setPathConstraints(upright_constraint);
 	  	connect->setCostTerm(std::make_unique<cost::TrajectoryDuration>());
-		connect->setTimeout(10.0);
 		connect->properties().configureInitFrom(Stage::PARENT);
 		pickTask->add(std::move(connect));
 	}
