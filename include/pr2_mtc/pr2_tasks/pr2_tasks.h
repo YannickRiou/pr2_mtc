@@ -1,3 +1,11 @@
+/**
+ * \file pr2_tasks.h
+ * \author Yannick R.
+ * \version 1
+ * \date 22/10/21
+ *
+ */
+
 #pragma once
 
 #include <ros/ros.h>
@@ -82,17 +90,28 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Used to ask ontology to get all object on this support surface
+// Name of the ontology of the robot
 #define ROBOT_ONTOLOGY_NAME "pr2_robot"
 
+// Default planner used when creating a task
 #define PLANNER "TRRT"
 
+// Default longest segment fraction used when planning task 
+// This parameter will affect collision detection and planning time
+// low value = less collision but more planning time
 #define DEFAULT_LONGEST_VALID_SEGMENT_FRACTION 0.00001
 
+// name of the topic to access the getPose service 
+// handeld by the situation assesment
 #define GET_POSE_TOPIC "/overworld/getPose"
 
+// name of the topic to access the getBoundingBox service
+// handeld by the situation assesment
 #define GET_BOUNDINGBOX_TOPIC "/pr2_robot/getBoundingBox"
 
+// define max number of solution that Moveit
+// task constructor will search for when planning 
+// More solutions means more planning time 
 #define NUMBER_OF_MAX_SOLUTION 10.0
 
 using namespace moveit::task_constructor;
@@ -129,31 +148,36 @@ class motionPlanning
 
         void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat);
 
-
-
-
     private:
         ros::NodeHandle nh_;
 
         // Variable to store the last task that was planned
         // To be able to execute it afterward
         std::unique_ptr<Task> lastPlannedTask_;
+
+        // Variable to store the arm used in the task
         std::string taskArmGroup_;
+
+        // Variable to store the object 
+        // we interacted with in the task
         std::string taskObjId_;
 
-        ros::Publisher debug_pose_pub_;
-
+        // Plan and execute action server 
+        // to handle motion planning and execution request
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>> planServer_;
         std::unique_ptr<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::executeAction>> executeServer_;
 
-        // Service to get object pose from underworld
+        // Service to get object pose from situation assesment
         ros::ServiceClient getPoseSrv_;
 
-        // Service to get object size from underworld
+        // Service to get object size from situation assesment
         ros::ServiceClient getBoundingBoxSrv_;
 
+        // Handle to call Ontologenius API
         OntologyManipulator onto_;
 
+        // Transform related variable to 
+        // listen to tf and transform poses
         geometry_msgs::TransformStamped mainTransform_;
         tf2_ros::Buffer tfBuffer_;
         tf2_ros::TransformListener transformListenner_;
@@ -172,7 +196,7 @@ class motionPlanning
         // planner used for approach and retreat
         std::shared_ptr<moveit::task_constructor::solvers::CartesianPath> cartesianPlanner_;
 
-        // planner used for connect
+        // planner used for connect and arm movements
         std::shared_ptr<moveit::task_constructor::solvers::PipelinePlanner> pipelinePlanner_;
 
         // planner used for gripper open/close movements
@@ -180,12 +204,17 @@ class motionPlanning
 
         // Variable to set the eef used during task
         std::string eef_;
+
+        // Variable to set the eef
+        // used during dual arm task
         std::string first_eef_;
         std::string second_eef_;
 
         // Variable to set the ikFrame used during task
 	    std::string ikFrame_;
+
+        // Variable to set the ikFrame
+        // used during dual arm task
         std::string first_ikFrame_;
         std::string second_ikFrame_;
-
 };
