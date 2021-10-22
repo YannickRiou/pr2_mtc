@@ -22,6 +22,8 @@
 // Head related include
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <move_base_msgs/MoveBaseAction.h>
+ #include <base_nav/DockAction.h>
+
 
 #include <dt_head_gestures/HeadScanAction.h>
 
@@ -421,13 +423,15 @@ void scan_room(actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& na
   }
 }
 
-void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient)
+void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient,actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<base_nav::DockAction>& dockTo)
 {
   pr2_motion_tasks_msgs::planGoal planGoal;
   pr2_motion_tasks_msgs::executeGoal executeGoal;
 
   geometry_msgs::PoseStamped customPose;
 
+  move_base_msgs::MoveBaseGoal navToGoal;
+  base_nav::DockGoal dockToGoal;
 
   std::vector<moveit_msgs::RobotTrajectory> trajectories;
   dual_arm_msgs::DualArmPlaceLocation loc;
@@ -439,6 +443,108 @@ void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_
   // wait for the action server to start
   planClient.waitForServer(); //will wait for infinite time
   executeClient.waitForServer(); //will wait for infinite time
+
+  lookAt("cube_GBTB",0,0,0);
+  planGoal.planGroup = "left_arm";
+  planGoal.objId = "cube_GBTB";
+  planGoal.action = "pickAuto";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  if(planClient.getResult()->error_code == 1)
+  {
+    executeClient.sendGoal(executeGoal);
+    executeClient.waitForResult();
+  }
+  else
+  {
+    ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+    return;
+  }
+
+  planGoal.planGroup = "left_arm";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "left_arm_home";
+
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+  lookAt("cube_BGTG",0,0,0);
+  planGoal.planGroup = "right_arm";
+  planGoal.objId = "cube_BGTG";
+  planGoal.action = "pickAuto";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  if(planClient.getResult()->error_code == 1)
+  {
+    executeClient.sendGoal(executeGoal);
+    executeClient.waitForResult();
+  }
+  else
+  {
+    ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
+    return;
+  }
+
+  planGoal.planGroup = "right_arm";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "right_arm_home";
+
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+  dockToGoal.targetPose.header.frame_id = "throw_box_pink";
+  dockToGoal.targetPose.pose.position.x = 0;
+  dockToGoal.targetPose.pose.position.y = -0.80;
+  dockToGoal.targetPose.pose.position.z = 0.0;
+  dockToGoal.targetPose.pose.orientation.x = 0.0;
+  dockToGoal.targetPose.pose.orientation.y = 0.0;
+  dockToGoal.targetPose.pose.orientation.z = 0.707;
+  dockToGoal.targetPose.pose.orientation.w = 0.707;
+
+  dockTo.sendGoal(dockToGoal);
+  dockTo.waitForResult();
+
+  planGoal.planGroup = "right_arm";
+  planGoal.objId = "cube_BGTG";
+  planGoal.pose.header.frame_id = "throw_box_pink";
+  planGoal.action = "drop";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+  planGoal.planGroup = "right_arm";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "right_arm_home";
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+  planGoal.planGroup = "left_arm";
+  planGoal.objId = "cube_GBTB";
+  planGoal.pose.header.frame_id = "throw_box_pink";
+  planGoal.action = "drop";
+  planClient.sendGoal(planGoal);
+  planClient.waitForResult();
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
+
+  planGoal.planGroup = "left_arm";
+  planGoal.action = "move";
+  planGoal.predefined_pose_id = "left_arm_home";
+
+  executeClient.sendGoal(executeGoal);
+  executeClient.waitForResult();
 
  // dual arm pick 
   lookAt("throw_box_pink",0,0,0);
@@ -468,6 +574,18 @@ void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_
   {
     ROS_ERROR_STREAM("Error while trying to " << planGoal.action << " " << planGoal.objId);
   }
+
+  dockToGoal.targetPose.header.frame_id = "base_footprint";
+  dockToGoal.targetPose.pose.position.x = 0;
+  dockToGoal.targetPose.pose.position.y = 0;
+  dockToGoal.targetPose.pose.position.z = 0.0;
+  dockToGoal.targetPose.pose.orientation.x = 0.0;
+  dockToGoal.targetPose.pose.orientation.y = 0.0;
+  dockToGoal.targetPose.pose.orientation.z = 0.707;
+  dockToGoal.targetPose.pose.orientation.w = 0.707;
+
+  dockTo.sendGoal(dockToGoal);
+  dockTo.waitForResult();
   
   // Specifiy the desired value of the torso for the goal state.
   loc.user_goal_constr.joint_constraints.resize(2);
@@ -497,7 +615,7 @@ void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_
 
   // Set the dual arm place location. This defines the desired pose of the frame "frame_to_place" in the world_frame.
   // So at the end of the dual arm place the "frame_to_place" will be at loc.place_pose.
-  loc.place_pose.header.frame_id = "table_1";
+  loc.place_pose.header.frame_id = "throw_box_pink";
   setPosePosition(loc.place_pose.pose, 0.0, 0.0, 0.10);
   setPoseRPY(loc.place_pose.pose, 0, 0., 0.);
   loc.frame_to_place = "throw_box_pink";
@@ -973,7 +1091,7 @@ void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::plan
   arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
 
   navToGoal.target_pose.header.frame_id = "table_1";
-  navToGoal.target_pose.pose.position.x = 0.0;
+  navToGoal.target_pose.pose.position.x = 0.0;                                
   navToGoal.target_pose.pose.position.y = -0.70;
   navToGoal.target_pose.pose.position.z = 0.0;
   navToGoal.target_pose.pose.orientation.x = 0.0;
@@ -1079,8 +1197,11 @@ int main(int argc, char **argv)
 
   actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction> execute("/pr2_tasks_node/execute", true);
 
-  //actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
-  //navTo.waitForServer();
+  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
+  navTo.waitForServer();
+
+  actionlib::SimpleActionClient<base_nav::DockAction> dockTo("/docking_node/dock", true);
+  dockTo.waitForServer();
 
   //actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
   //headScan.waitForServer();
@@ -1091,7 +1212,7 @@ int main(int argc, char **argv)
   //ros::Duration(2).sleep(); 
   //home_body(plan,execute);
 
-  scenario_dual_arm_pickplace(plan,execute);
+  scenario_dual_arm_pickplace(plan,execute,navTo, dockTo);
 
   //scenario_dual_arm(plan,execute,navTo,headScan);
 
