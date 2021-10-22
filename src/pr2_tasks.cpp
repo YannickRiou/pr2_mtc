@@ -1854,14 +1854,13 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
 	//====== Create a pick/place task with custom place pose ======//
 	else if(goal->action == "pickPlace")
 	{
-
 		getPoseIntoBasefootprint(goal->pose,customPose);
 
 		customPose.header.frame_id = "/base_footprint";
@@ -1869,7 +1868,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPickPlaceTask(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPose);
 	}
@@ -1901,7 +1900,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPickTaskCustom(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0], customPoses);
 	}
@@ -1934,7 +1933,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId + "with" + armGroup_left + "and" + armGroup_right;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPickTaskCustomDual(lastPlannedTask_,armGroup_left, armGroup_right,goal->objId,supportSurfaceId[0], customPoses,customPoses_right);
 	}
@@ -1945,7 +1944,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPickTask(lastPlannedTask_,taskArmGroup_,goal->objId,supportSurfaceId[0]);
 	}
@@ -1963,7 +1962,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
@@ -1995,7 +1994,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		taskName = goal->action + "_" + goal->objId + "_in_" + goal->pose.header.frame_id;
 
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 		createPlaceTask(lastPlannedTask_, taskArmGroup_, goal->objId, customPoses);
 	}
@@ -2004,7 +2003,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	{
 		taskName = goal->action + "_" + goal->planGroup;
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 		lastPlannedTask_->setName(taskName);
 
 		if(goal->predefined_pose_id.empty())
@@ -2027,9 +2026,9 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	//====== Create a drop task with generated poses ======//
 	else if (goal->action == "drop")
 	{
-		taskName = goal->action + "_" + goal->planGroup;
+		taskName = goal->action + "_" + goal->objId + "_" + goal->planGroup;
 		// Create Task
-		lastPlannedTask_ = std::make_unique<Task>(taskName);
+		lastPlannedTask_ = std::make_unique<Task>();
 
 		lastPlannedTask_->setName(taskName);
 
