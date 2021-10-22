@@ -1644,6 +1644,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 	
 		ROS_INFO_STREAM("###########################################################################################");	
 	}
+	ROS_INFO_STREAM("[updateWorld] =========[WORLD HAS BEEN UPDATED]=========");
+	return 0;
 }
 
  /**
