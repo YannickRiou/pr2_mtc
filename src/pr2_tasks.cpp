@@ -294,10 +294,6 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 
 	std::string ungrasp;
 
-	geometry_msgs::PoseStamped dropPose;
-
-
-
 	if(planGroup == "left_arm")
 	{
 		ikFrame_ = "l_gripper_tool_frame";
@@ -340,12 +336,10 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 	}	
 
 
-
 	// Increase precision for drop to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.0001);
 
 	pipelinePlanner_->setPlannerId(PLANNER);
-
 
 	//Start state
 	Stage* current_state = nullptr;
