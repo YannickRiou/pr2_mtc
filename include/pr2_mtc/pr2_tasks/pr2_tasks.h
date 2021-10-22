@@ -136,7 +136,7 @@ class motionPlanning
 
         void createPickPlaceTask(std::unique_ptr<moveit::task_constructor::Task>&pickPlaceTask, const std::string planGroup,const std::string object, const std::string supportId, geometry_msgs::PoseStamped placePose);
 
-        void createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string boxId);
+        void createDropTask(std::unique_ptr<moveit::task_constructor::Task>& dropTask, const std::string planGroup,const std::string object, const std::string dropFrame);
 
         int updateWorld(ros::ServiceClient& saClient);
 
