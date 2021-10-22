@@ -1849,8 +1849,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		transformedPose.header.frame_id = "/base_footprint";
 
-		debug_pose_pub_.publish(transformedPose);
-
 		customPoses.push_back(transformedPose);
 
 		taskName = goal->action + "_" + goal->objId;
@@ -1960,9 +1958,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		transformedPose.header.frame_id = "/base_footprint";
 		transformedPose.pose.position.z += 0.05;
 	
-		debug_pose_pub_.publish(transformedPose);
-
-
 		customPoses.push_back(transformedPose);
 
 		taskName = goal->action + "_" + goal->objId;
