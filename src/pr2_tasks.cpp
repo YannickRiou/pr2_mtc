@@ -2268,7 +2268,6 @@ int main(int argc, char** argv)
 	spinner.start();
 
 	ros::NodeHandle nh("~");
-	ros::Rate r(10); // 10 hz+
 
 	motionPlanning pr2Motion(nh);
 
