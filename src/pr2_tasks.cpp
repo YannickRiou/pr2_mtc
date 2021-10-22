@@ -522,7 +522,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		pickTask->properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
-		// TODO TEST WITH THIS
 		grasp->setProperty("eef",eef_);
 
 		{
@@ -539,10 +538,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 		}
 
 		{
-			/*auto stage = std::make_unique<stages::GeneratePose>("go to grasp pose");
-			stage->setPose(graspPose);
-			stage->properties().configureInitFrom(Stage::PARENT);*/
-
 			auto stage = std::make_unique<stages::GenerateCustomPose>("Generate Custom Poses");
 			stage->setCustomPoses(graspPoses);
 			stage->properties().configureInitFrom(Stage::PARENT);
@@ -718,7 +713,6 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 		pickTask->properties().exposeTo(grasp->properties(), { "eef", "group"});
 		grasp->properties().configureInitFrom(Stage::PARENT, { "eef", "group"});
 
-		// TODO TEST WITH THIS
 		grasp->setProperty("eef",first_eef_);
 
 		// ---------------------- approach object ---------------------- //
@@ -1366,6 +1360,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	moveit_msgs::CollisionObject collisionObj;
 
 	// variable to store the collision object poses
+	// before and after transformation into base_footprint frame
 	geometry_msgs::PoseStamped colliObjPosetransformed;
 	geometry_msgs::PoseStamped colliObjPoseUntransformed;
 
@@ -1868,6 +1863,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		}
 	}
 
+	// If no plan group has been defined
 	// choose the arm according to object position
 	if(goal->planGroup.empty())
 	{
@@ -2217,9 +2213,6 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	// Verify that the last planned task had solutions
 	if(lastPlannedTask_->solutions().size() > 0)
 	{
-    // TODO Check that this works
-		//ROS_INFO_STREAM("Executing solution trajectory of " << lastPlannedTask_->ns());
-
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
