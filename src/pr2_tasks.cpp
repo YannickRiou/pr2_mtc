@@ -154,8 +154,6 @@ void motionPlanning::createPlaceTask(std::unique_ptr<moveit::task_constructor::T
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK", std::move(stage) );
 			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame_);
-			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			place->insert(std::move(wrapper));
@@ -377,7 +375,6 @@ void motionPlanning::createDropTask(std::unique_ptr<moveit::task_constructor::Ta
 		auto wrapper = std::make_unique<stages::ComputeIK>("grasp pose IK", std::move(stage) );
 		wrapper->setMaxIKSolutions(10);
 		wrapper->setIKFrame(ikFrame_);
-		wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 		wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 		wrapper->setProperty("group",planGroup);
 		wrapper->setProperty("eef",eef_);
@@ -503,8 +500,7 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "group" });
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setIKFrame(ikFrame_);
-			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
+	
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
 			grasp->insert(std::move(wrapper));
@@ -696,8 +692,7 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 			wrapper->setMaxIKSolutions(10);
 			wrapper->setProperty("group",planGroup_first);
 			wrapper->setIKFrame(first_ikFrame_);
-			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
+
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			wrapper->properties().configureInitFrom(Stage::PARENT, {"eef"});
 			grasp->insert(std::move(wrapper));
@@ -930,8 +925,6 @@ void motionPlanning::createPickTask(std::unique_ptr<moveit::task_constructor::Ta
 			wrapper->setMaxIKSolutions(8);
 			wrapper->setMinSolutionDistance(1.0);
 	
-	 		// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)	
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
 			wrapper->setIKFrame(ikFrame_);
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
@@ -1084,7 +1077,6 @@ void motionPlanning::createPickPlaceTask(std::unique_ptr<moveit::task_constructo
 		stages::Connect::GroupPlannerVector planners = {{planGroup, pipelinePlanner_},{eef_, gripper_planner_}};
 		auto connect = std::make_unique<stages::Connect>("connect", planners);
 		connect->setProperty("group",planGroup);
-		connect->setCostTerm(moveit::task_constructor::cost::Clearance{});
 		connect->properties().configureInitFrom(Stage::PARENT);
 		pickPlaceTask->add(std::move(connect));
 	}
@@ -1243,8 +1235,7 @@ void motionPlanning::createPickPlaceTask(std::unique_ptr<moveit::task_constructo
 			auto wrapper = std::make_unique<stages::ComputeIK>("pose IK place", std::move(stage) );
 			wrapper->setMaxIKSolutions(32);
 			wrapper->setIKFrame(ikFrame_);
-			// Fix to avoid getting solution with collision (github.com/ros-planning/moveit_task_constructor/issues/209)
-			wrapper->setCostTerm(moveit::task_constructor::cost::Clearance{});
+
 			wrapper->properties().configureInitFrom(Stage::PARENT, { "eef", "group", "ik_frame" });
 			wrapper->properties().configureInitFrom(Stage::INTERFACE, { "target_pose" });
 			place->insert(std::move(wrapper));
