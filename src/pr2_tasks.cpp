@@ -404,8 +404,6 @@ void motionPlanning::createPickTaskCustom(std::unique_ptr<moveit::task_construct
 {
 	pickTask->setRobotModel(kinematic_model_);
 
-	auto gripper_planner = std::make_shared<solvers::JointInterpolationPlanner>();
-
 	// Property and variable definitions
 	std::string pregrasp;
 	std::string postgrasp;
@@ -619,9 +617,6 @@ void motionPlanning::createPickTaskCustomDual(std::unique_ptr<moveit::task_const
 	// Increase precision to avoid collision
 	pipelinePlanner_->setProperty("longest_valid_segment_fraction",0.00001);
 	pipelinePlanner_->setPlannerId(PLANNER);
-
-	auto cartesian = std::make_shared<solvers::CartesianPath>();
-	cartesian->setProperty("jump_threshold", 0.0);
 
 	//Start state
 	Stage* current_state = nullptr;
