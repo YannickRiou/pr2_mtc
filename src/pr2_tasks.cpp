@@ -47,12 +47,12 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	getPoseSrv_ = nh_.serviceClient<pr2_motion_tasks_msgs::GetPose>(GET_POSE_TOPIC);
 	ros::service::waitForService(GET_POSE_TOPIC, -1);
 
-	ROS_INFO("[Node connected to getPose service]");
+	ROS_INFO("[motionPlanning constructor][Node connected to getPose service]");
 
 	getBoundingBoxSrv_ = nh_.serviceClient<overworld::BoundingBox>(GET_BOUNDINGBOX_TOPIC);
 	ros::service::waitForService(GET_BOUNDINGBOX_TOPIC, -1);
 
-	ROS_INFO("[Node connected to getBoundingBox service]");
+	ROS_INFO("[motionPlanning constructor][Node connected to getBoundingBox service]");
 
 	// Create the action server to handle motion task planning request.
 	// When a planning request is received, call the planCallback function
@@ -67,10 +67,7 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	planServer_->start();
 	executeServer_->start();
 	
-	ROS_INFO("[Plan and execute action servers started successfully]");
-
-
-	debug_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("pr2_debug", 10, true);
+	ROS_INFO("[motionPlanning constructor][Plan and execute action servers started successfully]");
 }
 
 // Class destructor
@@ -1342,7 +1339,8 @@ void motionPlanning::createPickPlaceTask(std::unique_ptr<moveit::task_constructo
  */
 int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 {
-	ROS_DEBUG_STREAM("===============[UPDATE OF THE WORLD INCOMING]==================");
+	ROS_INFO_STREAM("[updateWorld]=========[UPDATE OF THE WORLD INCOMING]=========");
+
     // Mesh related variable 
 	shape_msgs::Mesh mesh;
   	shapes::ShapeMsg mesh_msg;
@@ -1396,12 +1394,12 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 	// Ask ontologenius about all the
 	// object that are furnitures
 	furnitureIds = onto_.individuals.getType("Furniture");
-	ROS_INFO_STREAM("--===============[There is " << furnitureIds.size() << " Furnitures in the scene" << "]==================--");
+	ROS_INFO_STREAM("[updateWorld]--=========[There is " << furnitureIds.size() << " Furnitures in the scene" << "]=========--");
 
 	// For all furniture, get all the object that are on them
 	for (int j=0; j < furnitureIds.size(); j++)
 	{
-		ROS_INFO_STREAM("##===============[Furniture is " << furnitureIds[j] << "]==================##");
+		ROS_INFO_STREAM("[updateWorld]##=========[Furniture is " << furnitureIds[j] << "]=========##");
 	
 		// Ask situation assesment about poses 
 		srv.request.ids = furnitureIds;
@@ -1462,8 +1460,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 							meshURI.erase(pos, std::string("string#").length());
 						}
 
-							ROS_INFO_STREAM("furnitureId is [" << furnitureIds[j] << "]" );
-							ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+						ROS_INFO_STREAM("[updateWorld] furnitureId is [" << furnitureIds[j] << "]" );
+						ROS_INFO_STREAM("[updateWorld] MESH_URI is [" << meshURI << "]" );
 
 						m = shapes::createMeshFromResource(meshURI);
 
@@ -1494,7 +1492,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 				}
 				else
 				{
-					ROS_ERROR_STREAM("No mesh specified for furniture with id [" << furnitureIds[j] << "]");
+					ROS_ERROR_STREAM("[updateWorld] No mesh specified for furniture with id [" << furnitureIds[j] << "]");
 					continue;
 				}
 
@@ -1509,15 +1507,15 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 			
 				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 				planning_scene_interface_.applyCollisionObject(collisionObj);
-				ROS_INFO_STREAM("Successfully added to scene furniture with ID [" + furnitureIds[j] + "]");
+				ROS_INFO_STREAM("[updateWorld] Successfully added to scene furniture with ID [" + furnitureIds[j] + "]");
 			}
 
-			ROS_INFO_STREAM("Now adding objects that are on furniture with ID [" + furnitureIds[j] + "]");
+			ROS_INFO_STREAM("[updateWorld] Now adding objects that are on furniture with ID [" + furnitureIds[j] + "]");
 
 			// Ask Onotologenius all the objects that are on this furniture
 			objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
 
-			ROS_INFO_STREAM("===============[There is " << objIds.size() << " objects on top of it]==================");
+			ROS_INFO_STREAM("[updateWorld] =========[There is " << objIds.size() << " objects on top of it]=========");
 		}
 		else
 		{
@@ -1587,8 +1585,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 								meshURI.erase(pos, std::string("string#").length());
 							}
 
-								ROS_INFO_STREAM("ObjId is [" << objIds[i] << "]" );
-								ROS_INFO_STREAM("MESH_URI is [" << meshURI << "]" );
+							ROS_INFO_STREAM("[updateWorld] ObjId is [" << objIds[i] << "]" );
+							ROS_INFO_STREAM("[updateWorld] MESH_URI is [" << meshURI << "]" );
 
 							m = shapes::createMeshFromResource(meshURI);
 
@@ -1620,8 +1618,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 					// Check if object has shape defined in ontology
 					else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
 					{
-						ROS_WARN_STREAM("Error while updating the world, no meshes were returned by Ontologenius...");	
-						ROS_WARN_STREAM("Asking for dimensions if objects comes from Robosherlock...");
+						ROS_WARN_STREAM("[updateWorld] No meshes were returned by Ontologenius...");	
+						ROS_WARN_STREAM("[updateWorld] Asking for dimensions if objects comes from Robosherlock...");
 
 						collisionObj.primitives.resize(1);
 
@@ -1643,8 +1641,6 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 						// Set the type of object 
 						if(onto_.individuals.getOn(objIds[i],"hasShape")[0] == "box")
 						{
-							ROS_WARN_STREAM("It's a box !!");
-
 							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
 							
 							collisionObj.primitives[0].dimensions.resize(3);
@@ -1654,8 +1650,6 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 						}
 						else if (onto_.individuals.getOn(objIds[i],"hasShape")[0] == "round")
 						{
-							ROS_WARN_STREAM("It's a cylinder !!");
-
 							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
 							
 							collisionObj.primitives[0].dimensions.resize(2);
@@ -1666,13 +1660,13 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 						}
 						else
 						{
-							ROS_ERROR("No shape specified for Robosherlock objects....");
+							ROS_ERROR("[updateWorld] No shape specified for Robosherlock objects....");
 							continue;
 						}	
 					}
 					else
 					{
-						ROS_ERROR_STREAM("No shape, no mesh specified for object with id [" << objIds[i] << "]");
+						ROS_ERROR_STREAM("[updateWorld] No shape, no mesh specified for object with id [" << objIds[i] << "]");
 						continue;
 					}
 												
@@ -1686,7 +1680,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& udwClient)
 
 					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
 					planning_scene_interface_.applyCollisionObject(collisionObj);
-					ROS_INFO_STREAM("Successfully added to scene object with ID [" + collisionObj.id + "]");
+					ROS_INFO_STREAM("[updateWorld] Successfully added to scene object with ID [" + collisionObj.id + "]");
 				}
 				else
 				{
@@ -1757,7 +1751,7 @@ void motionPlanning::getPoseIntoBasefootprint(geometry_msgs::PoseStamped in_pose
 	}
 	catch (tf2::TransformException &ex)
 	{
-		ROS_WARN("%s",ex.what());
+		ROS_WARN_STREAM("[getPoseIntoBasefootprint] Exception while looking up for transform between " << in_pose.header.frame_id << "and base_footprint [" << ex.what() << "]");
 		return ;
 	}
 
@@ -1806,7 +1800,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 				if (supportSurfaceId.size() == 0)
 				{
 					planResult.error_code = -1;
-					ROS_ERROR_STREAM("[Anti-gravity generator enabled]" << goal->objId << " isn't in any box or on top of any surface.");
+					ROS_ERROR_STREAM("[planCallback] " << goal->objId << " isn't in any box or on top of any surface.");
 					planServer_->setAborted(planResult);
 					return;
 				}
@@ -1848,11 +1842,11 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 				if(objInBoxIds.size() != 0)
 				{
-					ROS_ERROR_STREAM("--===============[There is " << objInBoxIds.size() << " object in " << goal->objId << " . Deleting them before planning pick]==================--");
+					ROS_ERROR_STREAM("[planCallback] --=========[There is " << objInBoxIds.size() << " object in " << goal->objId << " . Deleting them before planning pick]=========--");
 					
 					for (int i =0; i < objInBoxIds.size(); i++)
 					{
-						ROS_WARN_STREAM("--=================== DELETING [" << objInBoxIds[i] << "] from the scene ===================--");
+						ROS_WARN_STREAM("[planCallback] --========= DELETING [" << objInBoxIds[i] << "] from the scene =========--");
 
 						collisionObj.id = objInBoxIds[i];
 						collisionObj.operation = collisionObj.REMOVE;
@@ -1905,8 +1899,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 		taskName = goal->action + "_" + goal->objId;
 
-		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
-
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
 		lastPlannedTask_->setName(taskName);
@@ -1921,8 +1913,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPose.header.frame_id = "/base_footprint";
 
 		taskName = goal->action + "_" + goal->objId;
-
-		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
@@ -1955,8 +1945,6 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		customPoses.push_back(customPose);
 
 		taskName = goal->action + "_" + goal->objId;
-
-		ROS_ERROR_STREAM("Support surface for pick is [" << supportSurfaceId[0] << "]");
 
 		// Create Task
 		lastPlannedTask_ = std::make_unique<Task>(taskName);
@@ -2098,8 +2086,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 	}
 	else
 	{
-		ROS_ERROR_STREAM("Unknown action provided. Available action are pick, pick_dt, pickDual, move, drop, place, place_dt");
-		// TODO handle this case
+		ROS_ERROR_STREAM("[planCallback] Unknown action provided. Available action are pick, pickAuto, pick_dt, pickDual, move, drop, place, place_dt");
 		return;
 	}
 
@@ -2109,11 +2096,11 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 
 	try
 	{
-		ROS_INFO_STREAM("Beginning plan of task [" << taskName << "] !");
+		ROS_INFO_STREAM("[planCallback] Begin planning of task [" << taskName << "] !");
 
 		if(lastPlannedTask_->plan(NUMBER_OF_MAX_SOLUTION) && !planServer_->isPreemptRequested())
 		{
-			ROS_INFO_STREAM("Planning of task [" << taskName << "] SUCCEEDED !");
+			ROS_INFO_STREAM("[planCallback] Planning of task [" << taskName << "] SUCCEEDED !");
 
 			planResult.error_code = 1;
 			planResult.cost = lastPlannedTask_->solutions().front()->cost();
@@ -2134,20 +2121,19 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 			
 			if(planServer_->isPreemptRequested())
 			{
-				ROS_WARN_STREAM("Planning of task [" << taskName << "] PREEMPTED !");
+				ROS_WARN_STREAM("[planCallback] Planning of task [" << taskName << "] PREEMPTED !");
 				planServer_->setPreempted(planResult);
 			}
 			else
 			{
-				ROS_WARN_STREAM("Planning of task [" << taskName << "] ABORTED !");
+				ROS_WARN_STREAM("[planCallback] Planning of task [" << taskName << "] ABORTED !");
 				planServer_->setAborted(planResult);
 			}
 		}
 	}
 	catch (const InitStageException& e)
 	{
-    // TODO Handle this state
-		ROS_ERROR_STREAM(e);
+		ROS_ERROR_STREAM("[planCallback] Planning of the task [" << taskName << "] failed with error [" << e << "]");
 	}
 
 }
@@ -2159,8 +2145,8 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
  */
 void feedbackCb(const moveit_task_constructor_msgs::ExecuteTaskSolutionFeedbackConstPtr& feedback)
 {
-  ROS_ERROR_STREAM("Got Feedback ID  " <<  feedback->sub_id);
-  ROS_ERROR_STREAM("Got Feedback Number  " <<  feedback->sub_no);
+  ROS_INFO_STREAM("[feedbackCb] Got Feedback ID  " <<  feedback->sub_id);
+  ROS_INFO_STREAM("[feedbackCb] Got Feedback Number  " <<  feedback->sub_no);
 }
 
  /**
@@ -2174,8 +2160,8 @@ void feedbackCb(const moveit_task_constructor_msgs::ExecuteTaskSolutionFeedbackC
 void doneCb(const actionlib::SimpleClientGoalState& state,
             const moveit_task_constructor_msgs::ExecuteTaskSolutionResultConstPtr& result, bool& doneFlag)
 {
-  ROS_INFO_STREAM("Finished in state : " << state.toString().c_str());
-  ROS_INFO_STREAM("RESULT: " << result->error_code);
+  ROS_INFO_STREAM("[doneCb] Task execution finished in state : " << state.toString().c_str());
+  ROS_INFO_STREAM("[doneCb] Result : " << result->error_code);
 
   doneFlag = true;
 }
@@ -2186,7 +2172,7 @@ void doneCb(const actionlib::SimpleClientGoalState& state,
  */
 void activeCb()
 {
-  ROS_INFO("Goal just went active");
+  ROS_INFO("[activeCb] Execution of the task just began");
 }
 
  /**
@@ -2216,7 +2202,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 		// Fill the solution message
 		lastPlannedTask_->solutions().front()->fillMessage(execute_goal.solution);
 
-		ROS_INFO_STREAM("Sending goal to execute the previous task ("<< lastPlannedTask_->name() << ")");
+		ROS_INFO_STREAM("[executeCallback] Sending goal to execute the previous task ["<< lastPlannedTask_->name() << "]");
 
 		// Sending goal to moveit task constructor execution server
 		executeTask.sendGoal(execute_goal, boost::bind(&doneCb,_1,_2,boost::ref(doneFlag)), &activeCb, &feedbackCb);
@@ -2250,7 +2236,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 
 		if (execute_result.val != moveit_msgs::MoveItErrorCodes::SUCCESS)
 		{
-			ROS_ERROR_STREAM("Task execution failed and returned: " << executeTask.getState().toString());
+			ROS_ERROR_STREAM("[executeCallback] Task execution failed and returned: " << executeTask.getState().toString());
 
 			executeResult.error_code = -2;
 
@@ -2300,7 +2286,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 					collisionObj.operation = collisionObj.REMOVE;
 					planning_scene_interface_.applyCollisionObject(collisionObj);					
 			
-					ROS_ERROR_STREAM("Task execution succeeded but SA returned that object isn't held by gripper");
+					ROS_ERROR_STREAM("Task execution succeeded but situation assesment returned that object isn't held by gripper");
 					ROS_ERROR_STREAM("Obj [" << taskObjId_ << "] has been deleted from moveit world");
 					executeResult.error_code = -2;
 					executeServer_->setAborted(executeResult);
@@ -2317,7 +2303,7 @@ void motionPlanning::executeCallback(const pr2_motion_tasks_msgs::executeGoalCon
 	}
 	else
 	{
-		ROS_WARN_STREAM("Execution of task failed because the last planned task had no solution !");
+		ROS_ERROR_STREAM("Execution of task failed because the last planned task had no solutions !");
 		executeResult.error_code = -3;
 		executeServer_->setAborted(executeResult);
 	}
@@ -2334,8 +2320,6 @@ int main(int argc, char** argv)
 	ros::Rate r(10); // 10 hz+
 
 	motionPlanning pr2Motion(nh);
-
-	ROS_ERROR("STARTED ACTION SERVS");
 
 	while(ros::ok());
 
