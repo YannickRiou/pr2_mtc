@@ -1630,7 +1630,8 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 				}
 				else
 				{
-					ROS_WARN_STREAM("Error while updating the world, frame_id is empty...");
+					ROS_WARN_STREAM("[updateWorld] Error while updating the world, frame_id is empty...");
+					continue;
 				}
 				ROS_INFO_STREAM("----------------------------------------------------------------------------");
 			}
