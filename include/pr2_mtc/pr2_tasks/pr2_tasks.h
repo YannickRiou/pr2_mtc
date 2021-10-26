@@ -144,6 +144,8 @@ class motionPlanning
 
         void planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr& goal, ros::ServiceClient& saClient);
 
+        void planPreemptCallback();
+
         void executeCallback(const pr2_motion_tasks_msgs::executeGoalConstPtr& goal);
 
         void taskStatisticCallback(const moveit_task_constructor_msgs::TaskStatisticsConstPtr& taskStat);

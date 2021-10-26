@@ -57,6 +57,7 @@ motionPlanning::motionPlanning(ros::NodeHandle& nh)
 	// Create the action server to handle motion task planning request.
 	// When a planning request is received, call the planCallback function
 	planServer_ = std::make_unique<actionlib::SimpleActionServer<pr2_motion_tasks_msgs::planAction>>(nh_, "plan", boost::bind(&motionPlanning::planCallback,this, _1,getPoseSrv_), false);
+	planServer_->registerPreemptCallback(boost::bind(&motionPlanning::planPreemptCallback, this));
 
 	// Create the action server to handle motion task execution request.
 	// When an execution request is received, call the executeCallback function
@@ -1705,6 +1706,12 @@ void motionPlanning::getPoseIntoBasefootprint(geometry_msgs::PoseStamped in_pose
 	}
 
 	tf2::doTransform(in_pose,out_pose,transform);
+}
+
+void motionPlanning::planPreemptCallback()
+{
+	ROS_WARN("[planPreemptCallback] GOAL IS BEEING PREEMPTED");
+	lastPlannedTask_->preempt();
 }
 
  /**
