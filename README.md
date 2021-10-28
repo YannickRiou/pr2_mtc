@@ -1,23 +1,31 @@
 # Planning requests
-This node allows the supervisor to ask the planning of 4 differents tasks using a ROS action server called "plan" (action files available in the pr2_motion_tasks_msgs package) :
+This node allows the supervisor to ask the planning of differents tasks using a ROS action server called "plan" (action files available in the pr2_motion_tasks_msgs package) :
 
-Pick task by providing the name of the action (action) which is a "pick", the name of the cube (objId) and the arm to be used (planGroup). If no arm is defined, the one closer to the object side will be used.
+- **Pick** with custom grasp pose task by providing the *name* of the action (action) which is a "pick", the *id* of the object (objId), the *arm* to be used (planGroup) and the *grasp pose* (pose). If no arm is defined, the one closer to the object side will be used.
 
-Place task by providing the name of the action (action) which is a "place", the name of the box to place it in (boxId) and the arm to be used (planGroup).
+- **Pick & Place** task by providing the *name* of the action (action) which is a "pickPlace", the *id* of the object (objId), the *arm* to be used (planGroup), and the *place pose* (pose). The grasp pose for the pick will be automatically generated.
 
-Move task by providing the name of the action (action) which is a "move", and either a pose (pose) as a ROS PoseStamped type, or the name of a pre-defined one (predefined_pose_id). The pre-defined pose can be defined using Moveit Setup Assistant or by directly editing the pr2_moveit_config/config/pr2.srdf file located in the moveit_pr2 repository.
+- **Pick** (director's task) task by providing the *name* of the action (action) which is a "pick_dt", the *id* of the object (objId), the *arm* to be used (planGroup).The grasp poses are pre-defined according to the director's task scenario.
 
-Drop task by providing the name of the action (action) which is a "drop", and the arm to be used (planGroup).
+- **Dual arm pick** task by providing the *name* of the action (action) which is a "pickDual", the *name* of the object (objId), the *arm* to be used (planGroup). The planGroup must be defined as first_arm+second_arm (the + 'plus' sign between the two plan group name is important.
 
-Before a task is planned, the world handled by Moveit is udpated by asking Ontologenius about all the objects that are on the table and their meshes (defined as URI to dae files). The pose is then obtained by asking Underworlds service "GetPose" and providing the list of the objects ids.
+- **Pick with auto-generated grasp pose** task by providing the *name* of the action (action) which is a "pickAuto", the *id* of the object (objId), the *arm* to be used (planGroup). The grasp pose for the pick will be automatically generated.
+
+- **Place** task by providing the *name* of the action (action) which is a "place", the *pose* where to place the object (pose) and the *arm* to be used (planGroup).
+
+- **Place (director's task)** task by providing the *name* of the action (action) which is a "place", the *pose* (pose) where to place the object is automatically pre-defined but use needs to set the frame_id of the box where to put the object and the arm to be used (planGroup).
+
+- **Move** task by providing the *name* of the action (action) which is a "move", and either a *pose* (pose) as a ROS PoseStamped type, or the name of a pre-defined one (predefined_pose_id). The pre-defined pose can be defined using Moveit Setup Assistant or by directly editing the pr2_moveit_config/config/pr2.srdf file located in the moveit_pr2 repository.
+
+- **Drop** task by providing the *name* of the action (action) which is a "drop", the *arm* to be used (planGroup), the *pose* where to put the object if automatically generated, the user only need to define the *frame_id*. 
+
+Before a task is planned, the world handled by Moveit is udpated by asking Ontologenius about all the furnitures in the scene and all the objects that are on these furnitures and their meshes (defined as URI to dae files). The pose is then obtained by asking situation assesment service "GetPose" and providing the list of the objects ids. 
 
 Action | Return value | Meaning 
 ------------ | ------------- | -------------
 Plan a pick, place, move, drop | 1 | Success
-Plan a pick, place, move, drop | -1 | Planning of the task failed
-Plan a pick, place, move, drop | -4 | Update of the world failed (no transform between map and base_footprint)
-Plan a pick, place, move, drop | -5 | Update of the world failed (failed to get meshes from ontologenius)
-Plan a pick, place, move, drop | -6 | Update of the world failed (failed to get poses from underworld service)
+Plan a pick, place, move, drop | -1 | Planning of the task failed (no solution or object wasn't on any surface, or planning cancelled by user) 
+Plan a pick, place, move, drop | -6 | Update of the world failed (failed to get poses from situation assesment service)
 
 A feedback containing a progress level as a number going from 0 to 100(%) to give info on the planning status.
 
