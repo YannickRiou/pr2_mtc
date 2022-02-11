@@ -17,12 +17,12 @@
 #include <tf2/utils.h>
 
 //Dual arm related include
-#include <move_group_x/move_group_x.h>
+//#include <move_group_x/move_group_x.h>
 
 // Head related include
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <move_base_msgs/MoveBaseAction.h>
- #include <base_nav/DockAction.h>
+//#include <base_nav/DockAction.h>
 
 
 #include <dt_head_gestures/HeadScanAction.h>
@@ -423,7 +423,7 @@ void scan_room(actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& na
   }
 }
 
-void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient,actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<base_nav::DockAction>& dockTo)
+/*void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient,actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<base_nav::DockAction>& dockTo)
 {
   pr2_motion_tasks_msgs::planGoal planGoal;
   pr2_motion_tasks_msgs::executeGoal executeGoal;
@@ -635,7 +635,7 @@ void scenario_dual_arm_pickplace(actionlib::SimpleActionClient<pr2_motion_tasks_
 
   // Send the request to the dual arm place action server
   arms_torso.dual_arm_place("throw_box_pink", std::vector<dual_arm_msgs::DualArmPlaceLocation>(1, loc), trajectories);
-}
+}*/
 
 /*
 void scenario_dual_arm(actionlib::SimpleActionClient<pr2_motion_tasks_msgs::planAction> &planClient, actionlib::SimpleActionClient<pr2_motion_tasks_msgs::executeAction>& executeClient, actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>& navToClient, actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction>& headScan)
@@ -1200,8 +1200,8 @@ int main(int argc, char **argv)
   actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> navTo("/move_base", true);
   navTo.waitForServer();
 
-  actionlib::SimpleActionClient<base_nav::DockAction> dockTo("/docking_node/dock", true);
-  dockTo.waitForServer();
+  //actionlib::SimpleActionClient<base_nav::DockAction> dockTo("/docking_node/dock", true);
+  //dockTo.waitForServer();
 
   //actionlib::SimpleActionClient<dt_head_gestures::HeadScanAction> headScan("/head_scan/head_scan", true);
   //headScan.waitForServer();
@@ -1212,7 +1212,7 @@ int main(int argc, char **argv)
   //ros::Duration(2).sleep(); 
   //home_body(plan,execute);
 
-  scenario_dual_arm_pickplace(plan,execute,navTo, dockTo);
+  //scenario_dual_arm_pickplace(plan,execute,navTo, dockTo);
 
   //scenario_dual_arm(plan,execute,navTo,headScan);
 

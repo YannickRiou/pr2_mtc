@@ -16,13 +16,13 @@ find_package(catkin REQUIRED COMPONENTS
   dt_head_gestures
   roscpp
   rospy
-  move_group_x
-  dual_arm_manipulation
+  #move_group_x
+  #dual_arm_manipulation
   rviz_marker_tools
   ontologenius
   pr2_motion_tasks_msgs
   overworld
-  base_nav
+  #base_nav
 )
 
 ## System dependencies are found with CMake's conventions
