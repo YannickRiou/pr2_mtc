@@ -1328,19 +1328,14 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 		}
 	}
 
-	// Ask ontologenius about all the
-	// object that are furnitures
-	furnitureIds = onto_.individuals.getType("Furniture");
-	ROS_INFO_STREAM("[updateWorld]--=========[There is " << furnitureIds.size() << " Furnitures in the scene" << "]=========--");
 
-	// For all furniture, get all the object that are on them
-	for (int j=0; j < furnitureIds.size(); j++)
+	// Ask situation assesment about poses
+	// of object that are on the previous furniture
+	objIds = onto_.individuals.getRelatedFrom("topDataProperty");
+	srv.request.ids = objIds;
+	if (saClient.call(srv))							// Transform pose given by UWDS from map to basefootprint
 	{
-		ROS_INFO_STREAM("[updateWorld]##=========[Furniture is " << furnitureIds[j] << "]=========##");
-	
-		// Ask situation assesment about poses 
-		srv.request.ids = furnitureIds;
-		if (saClient.call(srv))
+		for (int i=0; i < objIds.size(); i++)
 		{
 			// Clear vector to be able to reuse it
 			collisionObj.meshes.clear();
@@ -1349,16 +1344,16 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 			collisionObj.primitives.clear();
 			collisionObj.primitive_poses.clear();
 
-			// Fill in mesh URI (ask ontology or get it from the mesh map)
-			// Verify if frame_id isn't empty
+			// Fill in mesh URI (ask ontology or get it from the cache)
+			//Verify if frame_id isn't empty
 			// Situation assesment publish with frame_id as /map so transform to base_footprint
-			if(!srv.response.poses[j].header.frame_id.empty())
+			if(!srv.response.poses[i].header.frame_id.empty())
 			{
-				// Check object is already known and if a mesh is already in the mesh map
-				if (objMeshMap_.find(furnitureIds[j]) != objMeshMap_.end())
+				// Check object is already known and if a mesh is already in the map
+				if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
 				{
 					// Mesh URI is already known so get it from the map
-					m = shapes::createMeshFromResource(objMeshMap_.at(furnitureIds[j]));
+					m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
 
 					shapes::constructMsgFromShape(m, mesh_msg);
 					mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
@@ -1367,10 +1362,10 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 					collisionObj.meshes.push_back(mesh);
 
 					// Do the transform only if frame_id isn't base_footprint already
-					if(srv.response.poses[j].header.frame_id != "/base_footprint")
+					if(srv.response.poses[i].header.frame_id != "/base_footprint")
 					{
-						colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
-						colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+						colliObjPoseUntransformed.header.frame_id = srv.response.poses[i].header.frame_id;
 
 						getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
 												
@@ -1378,14 +1373,14 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 					}
 					else
 					{
-						collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
+						collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 					}
 				}
 				// Object is a mesh and unknown so get URI and create mesh
-				else if (onto_.individuals.getOn(furnitureIds[j],"hasMesh").size() > 0)
+				else if (onto_.individuals.getOn(objIds[i],"hasMesh").size() > 0)
 				{
 					// Ask ontologenius for mesh URI
-					meshTemp = onto_.individuals.getOn(furnitureIds[j],"hasMesh");
+					meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
 					if(meshTemp.size() > 0)
 					{
 						meshURI = meshTemp[0];
@@ -1397,98 +1392,13 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 							meshURI.erase(pos, std::string("string#").length());
 						}
 
-						ROS_INFO_STREAM("[updateWorld] furnitureId is [" << furnitureIds[j] << "]" );
+						ROS_INFO_STREAM("[updateWorld] ObjId is [" << objIds[i] << "]" );
 						ROS_INFO_STREAM("[updateWorld] MESH_URI is [" << meshURI << "]" );
 
 						m = shapes::createMeshFromResource(meshURI);
 
 						// And add it to the map
-						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)furnitureIds[j],(std::string)meshURI));
-
-						shapes::constructMsgFromShape(m, mesh_msg);
-						mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-
-						// Add the mesh to the Collision object message
-						collisionObj.meshes.push_back(mesh);
-
-						// Do the transform only if frame_id isn't base_footprint already
-						if(srv.response.poses[j].header.frame_id != "/base_footprint")
-						{
-							colliObjPoseUntransformed.pose = srv.response.poses[j].pose;
-							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
-
-							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
-													
-							collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
-						}
-						else
-						{
-							collisionObj.mesh_poses.push_back(srv.response.poses[j].pose);
-						}
-					}
-					else
-					{ 
-						ROS_ERROR_STREAM("[updateWorld] Error when getting mesh URI from Ontologenius");
-						continue;
-					}
-				}
-				else
-				{
-					ROS_ERROR_STREAM("[updateWorld] No mesh specified for furniture with id [" << furnitureIds[j] << "]");
-					continue;
-				}
-
-				// Set object id
-				collisionObj.id = furnitureIds[j];
-
-				// Set frame_id to "base_footprint" as it has been transformed
-				collisionObj.header.frame_id = "base_footprint";
-
-				// Set the object to be added to the planning scene
-				collisionObj.operation = collisionObj.ADD;
-			
-				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
-				planning_scene_interface_.applyCollisionObject(collisionObj);
-				ROS_INFO_STREAM("[updateWorld] Successfully added to scene furniture with ID [" + furnitureIds[j] + "]");
-			}
-
-			ROS_INFO_STREAM("[updateWorld] Now adding objects that are on furniture with ID [" + furnitureIds[j] + "]");
-
-			// Ask Onotologenius all the objects that are on this furniture
-			objIds = onto_.individuals.getOn(furnitureIds[j],"isBelow");
-
-			ROS_INFO_STREAM("[updateWorld] =========[There is " << objIds.size() << " objects on top of it]=========");
-		}
-		else
-		{
-			ROS_ERROR_STREAM("[updateWorld] =========[Call of situation assement service failed to get pose for furniture !]=========");
-			return -6;
-		}
-
-		// Ask situation assesment about poses
-		// of object that are on the previous furniture
-		srv.request.ids = objIds;
-		if (saClient.call(srv))							// Transform pose given by UWDS from map to basefootprint
-		{
-			for (int i=0; i < objIds.size(); i++)
-			{
-				// Clear vector to be able to reuse it
-				collisionObj.meshes.clear();
-				collisionObj.mesh_poses.clear();
-
-				collisionObj.primitives.clear();
-				collisionObj.primitive_poses.clear();
-
-				// Fill in mesh URI (ask ontology or get it from the cache)
-				//Verify if frame_id isn't empty
-				// Situation assesment publish with frame_id as /map so transform to base_footprint
-				if(!srv.response.poses[i].header.frame_id.empty())
-				{
-					// Check object is already known and if a mesh is already in the map
-					if (objMeshMap_.find(objIds[i]) != objMeshMap_.end())
-					{
-						// Mesh URI is already known so get it from the map
-						m = shapes::createMeshFromResource(objMeshMap_.at(objIds[i]));
+						objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
 
 						shapes::constructMsgFromShape(m, mesh_msg);
 						mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
@@ -1500,7 +1410,7 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 						if(srv.response.poses[i].header.frame_id != "/base_footprint")
 						{
 							colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
+							colliObjPoseUntransformed.header.frame_id = srv.response.poses[i].header.frame_id;
 
 							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
 													
@@ -1511,140 +1421,67 @@ int motionPlanning::updateWorld(ros::ServiceClient& saClient)
 							collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
 						}
 					}
-					// Object is a mesh and unknown so get URI and create mesh
-					else if (onto_.individuals.getOn(objIds[i],"hasMesh").size() > 0)
-					{
-						// Ask ontologenius for mesh URI
-						meshTemp = onto_.individuals.getOn(objIds[i],"hasMesh");
-						if(meshTemp.size() > 0)
-						{
-							meshURI = meshTemp[0];
-
-							size_t pos = meshURI.find("string#");
-							if (pos != std::string::npos)
-							{
-								// If found then erase it from string
-								meshURI.erase(pos, std::string("string#").length());
-							}
-
-							ROS_INFO_STREAM("[updateWorld] ObjId is [" << objIds[i] << "]" );
-							ROS_INFO_STREAM("[updateWorld] MESH_URI is [" << meshURI << "]" );
-
-							m = shapes::createMeshFromResource(meshURI);
-
-							// And add it to the map
-							objMeshMap_.insert(std::make_pair<std::string,std::string>((std::string)objIds[i],(std::string)meshURI));
-
-							shapes::constructMsgFromShape(m, mesh_msg);
-							mesh = boost::get<shape_msgs::Mesh>(mesh_msg);
-
-							// Add the mesh to the Collision object message
-							collisionObj.meshes.push_back(mesh);
-
-							// Do the transform only if frame_id isn't base_footprint already
-							if(srv.response.poses[i].header.frame_id != "/base_footprint")
-							{
-								colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-								colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
-
-								getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
-														
-								collisionObj.mesh_poses.push_back(colliObjPosetransformed.pose);
-							}
-							else
-							{
-								collisionObj.mesh_poses.push_back(srv.response.poses[i].pose);
-							}
-						}
-						else
-						{ 
-							ROS_ERROR_STREAM("[updateWorld] Error when getting mesh URI from Ontologenius");
-							continue;
-						}
+					else
+					{ 
+						ROS_ERROR_STREAM("[updateWorld] Error when getting mesh URI from Ontologenius");
+						continue;
 					}
-					// Check if object has shape defined in ontology
-					else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
+				}
+				// Check if object has shape defined in ontology
+				else if (onto_.individuals.getOn(objIds[i],"hasShape").size() > 0)
+				{
+					ROS_WARN_STREAM("[updateWorld] No meshes were returned by Ontologenius...");	
+					ROS_WARN_STREAM("[updateWorld] Asking for dimensions if objects comes from Robosherlock...");
+
+					collisionObj.primitives.resize(1);
+
+					// Do the transform only if frame_id isn't base_footprint already
+					if(srv.response.poses[i].header.frame_id != "/base_footprint")
 					{
-						ROS_WARN_STREAM("[updateWorld] No meshes were returned by Ontologenius...");	
-						ROS_WARN_STREAM("[updateWorld] Asking for dimensions if objects comes from Robosherlock...");
+						colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
+						colliObjPoseUntransformed.header.frame_id = srv.response.poses[i].header.frame_id;
 
-						collisionObj.primitives.resize(1);
-
-						// Do the transform only if frame_id isn't base_footprint already
-						if(srv.response.poses[i].header.frame_id != "/base_footprint")
-						{
-							colliObjPoseUntransformed.pose = srv.response.poses[i].pose;
-							colliObjPoseUntransformed.header.frame_id = srv.response.poses[j].header.frame_id;
-
-							getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
-													
-							collisionObj.primitive_poses.push_back(colliObjPosetransformed.pose);
-						}
-						else
-						{
-							collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
-						}
-
-						// Set the type of object 
-						if(onto_.individuals.getOn(objIds[i],"hasShape")[0] == "box")
-						{
-							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
-							
-							collisionObj.primitives[0].dimensions.resize(3);
-							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionX")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X]);
-							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y]);
-							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z]);
-						}
-						else if (onto_.individuals.getOn(objIds[i],"hasShape")[0] == "round")
-						{
-							collisionObj.primitives[0].type = shape_msgs::SolidPrimitive::CYLINDER;
-							
-							collisionObj.primitives[0].dimensions.resize(2);
-							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionY")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]);
-							sscanf(onto_.individuals.getOn(objIds[i],"hasDimensionZ")[0].c_str(), "float#%lf",&collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]);
-
-							collisionObj.primitives[0].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/=2.0;
-						}
-						else
-						{
-							ROS_ERROR("[updateWorld] No shape specified for Robosherlock objects....");
-							continue;
-						}	
+						getPoseIntoBasefootprint(colliObjPoseUntransformed,colliObjPosetransformed);
+												
+						collisionObj.primitive_poses.push_back(colliObjPosetransformed.pose);
 					}
 					else
 					{
-						ROS_ERROR_STREAM("[updateWorld] No shape, no mesh specified for object with id [" << objIds[i] << "]");
-						continue;
+						collisionObj.primitive_poses.push_back(srv.response.poses[i].pose);
 					}
-												
-					// Set object id
-					collisionObj.id = objIds[i];
-
-					collisionObj.operation = collisionObj.ADD;
-				
-					// Set frame_id to "base_footprint" as it has been transformed
-					collisionObj.header.frame_id = "base_footprint";
-
-					// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
-					planning_scene_interface_.applyCollisionObject(collisionObj);
-					ROS_INFO_STREAM("[updateWorld] Successfully added to scene object with ID [" + collisionObj.id + "]");
 				}
 				else
 				{
-					ROS_WARN_STREAM("[updateWorld] Error while updating the world, frame_id is empty...");
+					ROS_ERROR_STREAM("[updateWorld] No shape, no mesh specified for object with id [" << objIds[i] << "]");
 					continue;
 				}
-				ROS_INFO_STREAM("----------------------------------------------------------------------------");
+											
+				// Set object id
+				collisionObj.id = objIds[i];
+
+				collisionObj.operation = collisionObj.ADD;
+			
+				// Set frame_id to "base_footprint" as it has been transformed
+				collisionObj.header.frame_id = "base_footprint";
+
+				// Add synchronously the collision object to planning scene (wait for it to be added before continuing)
+				planning_scene_interface_.applyCollisionObject(collisionObj);
+				ROS_INFO_STREAM("[updateWorld] Successfully added to scene object with ID [" + collisionObj.id + "]");
 			}
+			else
+			{
+				ROS_WARN_STREAM("[updateWorld] Error while updating the world, frame_id is empty...");
+				continue;
+			}
+			ROS_INFO_STREAM("----------------------------------------------------------------------------");
 		}
-		else
-		{
-			ROS_ERROR_STREAM("[updateWorld] =========[Call of situation assesment service failed to get pose for objects !]=========");
-			return -6 ;
-		}
-	
-		ROS_INFO_STREAM("###########################################################################################");	
 	}
+	else
+	{
+		ROS_ERROR_STREAM("[updateWorld] =========[Call of situation assesment service failed to get pose for objects !]=========");
+		return -6 ;
+	}
+	
 	ROS_INFO_STREAM("[updateWorld] =========[WORLD HAS BEEN UPDATED]=========");
 	return 0;
 }
@@ -1752,7 +1589,7 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 		updateWorldResult = updateWorld(saClient);
 
 		// Ask the box in which the cube is 
-		if (goal->action != "updateWorld")
+		/*if (goal->action != "updateWorld")
 		{
 			// Verify if it's in a box
 			supportSurfaceId = onto_.individuals.getOn(goal->objId,"isIn");
@@ -1768,7 +1605,10 @@ void motionPlanning::planCallback(const pr2_motion_tasks_msgs::planGoalConstPtr&
 					return;
 				}
 			}
-		}
+		}*/
+
+		supportSurfaceId.push_back("table_3");
+
 
 		if(updateWorldResult == -6)
 		{
